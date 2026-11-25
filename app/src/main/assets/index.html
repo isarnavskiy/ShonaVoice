@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#151e18">
+<meta name="description" content="Shona Voice — перевод с русского на шона и обратно.">
+<title>Shona Voice · Перевод</title>
+<style>:root {
+  color-scheme: dark;
+  font-family: "Roboto", system-ui, "Segoe UI", sans-serif;
+  --page: #151e18;
+  --surface: #202c23;
+  --divider: #465647;
+  --text: #f6efdf;
+  --muted: #d1c7b4;
+  --subtle: #b5af9a;
+  --accent: #edba62;
+  --accent-text: #30200d;
+  --tint: #354434;
+  --record: #e38e75;
+  --record-ink: #351b13;
+  --desktop: #101711;
+  --result: #29372b;
+  --icon: #efe4ce;
+  --icon-disabled: #788272;
+  --saved-fill: #696240;
+  --nav-fill: #7b693c;
+  --button-disabled: #364336;
+  --button-disabled-ink: #bab39c;
+  --accent-hover: #ffcf7c;
+  --link-hover: #ffdfa5;
+  --record-hover: #f09f87;
+  --record-halo: #e38e7548;
+  --message: #f3dcae;
+  --backdrop: #0d140fa6;
+  --status-ready: #aac791;
+  --status-pending: #dfaa6b;
+  --radius: 23px;
+}
+[data-theme="light"] {
+  color-scheme: light;
+  --page: #f6efdf;
+  --surface: #fffbef;
+  --divider: #cfc9b7;
+  --text: #222d24;
+  --muted: #4f5c4e;
+  --subtle: #5e695c;
+  --accent: #7d4b14;
+  --accent-text: #fffaf1;
+  --tint: #eae8d2;
+  --record: #a14935;
+  --record-ink: #fff7ed;
+  --desktop: #eae4d5;
+  --result: #f2ebda;
+  --icon: #374a3b;
+  --icon-disabled: #788477;
+  --saved-fill: #d6c297;
+  --nav-fill: #ddc296;
+  --button-disabled: #e6e4d6;
+  --button-disabled-ink: #666e62;
+  --accent-hover: #663b0e;
+  --link-hover: #633609;
+  --record-hover: #853d2d;
+  --record-halo: #a1493545;
+  --message: #694717;
+  --backdrop: #28302078;
+  --status-ready: #487441;
+  --status-pending: #9b541f;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--page); color: var(--text); }
+h1, h2, h3, p { margin: 0; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button, select { touch-action: manipulation; }
+button { background: transparent; border: 0; cursor: pointer; padding: 0; }
+button:disabled { cursor: default; }
+button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, audio:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+button { -webkit-tap-highlight-color: transparent; }
+svg.ico { flex: none; display: block; width: 22px; height: 22px; pointer-events: none; }
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.app { width: 100%; min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+  display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: center; gap: 6px;
+  padding: 6px 12px 6px 18px; padding: calc(6px + env(safe-area-inset-top)) 12px 6px 18px; min-height: 62px;
+}
+.topbar h1 { min-width: 0; font-size: 1.23rem; line-height: 1.2; letter-spacing: -.035em; font-weight: 680; }
+.app-mark { margin-right: 9px; border-radius: 8px; }
+.topbar h1 button { display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; }
+.icon {
+  display: inline-grid; place-items: center; width: 44px; height: 44px;
+  flex: 0 0 44px; color: var(--icon); border-radius: 12px;
+}
+.icon:disabled { color: var(--icon-disabled); }
+.icon[aria-pressed="true"], .listen[data-active="1"] { color: var(--accent); background: var(--tint); }
+.icon#save[aria-pressed="true"] .ico { fill: var(--saved-fill); }
+main { flex: 1; padding: 0 9px 87px; padding: 0 9px calc(87px + env(safe-area-inset-bottom)); min-width: 0; }
+.surface { background: var(--surface); border: 1px solid var(--divider); border-radius: var(--radius); }
+.languagebar {
+  display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
+  align-items: center; padding: 2px 8px; border-bottom: 1px solid var(--divider);
+}
+.languagebar select {
+  width: 100%; appearance: none; text-align: center; text-align-last: center;
+  min-height: 48px; background: transparent; border: 0; border-radius: 9px;
+  text-transform: uppercase; letter-spacing: .025em; font-size: .96rem; font-weight: 660; cursor: pointer;
+}
+.languagebar select:disabled { cursor: default; color: var(--muted); }
+.languagebar option { background: var(--surface); color: var(--text); }
+.swap { color: var(--accent); }
+.swap .ico { width: 23px; height: 23px; }
+.editarea, .result-area { padding: 12px 10px 8px 17px; }
+.input-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px; align-items: start; gap: 5px; }
+#input, #output {
+  min-width: 0; width: 100%; margin: 0; padding: 3px 0; border: none;
+  background: transparent; font-size: 1.65rem; line-height: 1.27;
+  letter-spacing: -.022em; overflow-wrap: anywhere;
+}
+#input { min-height: 90px; max-height: 40vh; min-height: clamp(90px, 16vh, 145px); max-height: 40dvh; resize: none; }
+#input::placeholder, #output.placeholder { color: var(--subtle); }
+#input:focus-visible { border-radius: 4px; outline-offset: 1px; }
+#input.long-text, #output.long-text { font-size: 1rem; line-height: 1.58; letter-spacing: normal; }
+#input.long-text { height: 32vh; max-height: 180px; height: min(180px, 32dvh); padding-right: 4px; }
+#clear:disabled { visibility: hidden; }
+.text-tools, .result-tools, .side-tools {
+  display: flex; align-items: center; min-height: 44px; gap: 5px;
+}
+.text-tools #counter { margin-right: auto; color: var(--muted); font-size: .73rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#micLabel { font-size: .75rem; color: var(--accent); line-height: 1.2; }
+.editarea[data-state="idle"] #micLabel { display: none; }
+.editarea:not([data-state="idle"]) #counter { display: none; }
+.editarea:not([data-state="idle"]) #micLabel { margin-right: auto; }
+.primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 42px; padding: 0 15px; border-radius: 12px;
+  background: var(--accent); color: var(--accent-text); font-weight: 670; font-size: .87rem;
+}
+.primary:disabled { background: var(--button-disabled); color: var(--button-disabled-ink); }
+.translate { min-height: 37px; }
+.mic { margin-left: 3px; touch-action: none; user-select: none; }
+.mic[data-phase="recording"] { color: var(--record-ink); background: var(--record); animation: pulse 1.55s ease-out infinite; }
+@keyframes pulse { from { box-shadow: 0 0 0 0 var(--record-halo); } 70%, to { box-shadow: 0 0 0 6px transparent; } }
+.result-area { border-top: 1px solid var(--divider); background: var(--result); border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); }
+#output { min-height: 83px; max-height: 36vh; min-height: clamp(83px, 14.5vh, 123px); padding-right: 7px; max-height: 36dvh; overflow-y: auto; white-space: pre-wrap; }
+.result-tools { justify-content: space-between; }
+.listen { margin-left: -6px; }
+.collection { padding: 14px 17px 12px; }
+.sec-head, .modalhead {
+  display: flex; align-items: center; justify-content: space-between; gap: 9px;
+}
+h2 { font-size: 1.125rem; font-weight: 650; letter-spacing: -.02em; line-height: 1.25; }
+.linkbtn {
+  display: inline-flex; gap: 6px; align-items: center; min-height: 40px;
+  text-align: left; color: var(--accent); font-size: .82rem; font-weight: 560;
+}
+.linkbtn:disabled { color: var(--subtle); }
+.linkbtn .ico { width: 15px; height: 15px; }
+.phrase-list > button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 60px; width: 100%; text-align: left; padding: 10px 0;
+}
+.phrase-list > button + button { border-top: 1px solid var(--divider); }
+.phrase-list > button > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.phrase-list > button strong { font-size: .95rem; font-weight: 600; }
+.phrase-list .secondary { color: var(--muted); font-size: .87rem; }
+.phrase-list > button .ico { width: 16px; height: 16px; color: var(--subtle); }
+.message, .empty { color: var(--muted); font-size: .87rem; line-height: 1.5; }
+.message { margin: 8px 7px; color: var(--message); }
+.empty { padding: 12px 0; }
+.review { margin-top: 9px; padding: 10px 17px; display: flex; align-items: center; flex-wrap: wrap; gap: 5px 12px; font-size: .87rem; }
+.review audio { max-width: 100%; width: 260px; height: 39px; }
+.search { display: flex; align-items: center; gap: 9px; border-radius: 12px; background: var(--page); margin: 8px 0 3px; padding: 0 11px; color: var(--muted); }
+.search:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.search input { background: none; border: 0; outline: 0; width: 100%; min-width: 0; height: 44px; }
+.nav {
+  position: fixed; z-index: 2; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 610px; width: min(100%, 610px); display: grid; grid-template-columns: repeat(2,minmax(0,1fr));
+  background: var(--surface); border-top: 1px solid var(--divider); gap: 6px; padding: 5px 9px; padding: 5px 9px calc(5px + env(safe-area-inset-bottom));
+}
+.nav button {
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 5px;
+  min-height: 55px; color: var(--muted); font-size: .79rem; border-radius: 17px;
+}
+.nav button[aria-current="page"] { color: var(--accent); background: var(--tint); font-weight: 670; }
+.nav button[aria-current="page"] .ico { fill: var(--nav-fill); }
+dialog {
+  width: calc(100% - 24px); max-width: 460px; max-height: 85vh; width: min(calc(100% - 24px), 460px); max-height: min(85vh, 85dvh);
+  background: var(--surface); color: var(--text); border: 1px solid var(--divider);
+  border-radius: var(--radius); padding: 14px 19px 18px; overflow-y: auto;
+}
+dialog::backdrop { background: var(--backdrop); }
+.modalhead { margin-bottom: 7px; }
+dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.theme-picker { margin: 0; padding: 0; min-width: 0; border: 0; }
+.theme-picker legend, .settings-group h3 { font-size: .9rem; font-weight: 650; margin-bottom: 8px; }
+.theme-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
+.theme-option { min-width: 0; position: relative; cursor: pointer; }
+.theme-option input { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; }
+.theme-option span {
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 5px;
+  min-height: 60px; padding: 5px 2px; border: 1px solid var(--divider); border-radius: 11px;
+  background: var(--page); color: var(--muted); text-align: center; font-size: .75rem; line-height: 1.15;
+}
+.theme-option .ico { width: 18px; height: 18px; }
+.theme-option input:checked + span {
+  border-color: var(--accent); background: var(--tint); color: var(--accent); font-weight: 650;
+}
+.theme-option input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-group { margin-top: 19px; }
+.model-card {
+  display: grid; grid-template-columns: 8px minmax(0,1fr); align-items: start; gap: 9px;
+  border: 1px solid var(--divider); border-radius: 11px; background: var(--page); padding: 11px;
+}
+.model-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: .38em; background: var(--status-pending); }
+.model-card[data-ready="true"] .status-dot { background: var(--status-ready); }
+.model-card strong { display: block; font-size: .875rem; margin-bottom: 4px; }
+.checkline { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 9px 1px; cursor: pointer; }
+.checkline + .checkline { border-top: 1px solid var(--divider); }
+.checkline span { display: grid; gap: 3px; }
+.checkline strong { font-size: .85rem; font-weight: 620; }
+.checkline small { font-size: .76rem; color: var(--muted); line-height: 1.35; }
+.checkline input { accent-color: var(--accent); width: 18px; height: 18px; flex: none; margin: 0; }
+.feedback { width: 100%; border-top: 1px solid var(--divider); margin-top: 12px; padding: 4px 0 0; }
+.feedback .ico:last-child { margin-left: auto; }
+#noteForm { display: grid; gap: 8px; font-size: .88rem; }
+#noteForm select, #noteForm textarea { border: 1px solid var(--divider); background: var(--page); padding: 8px; border-radius: 8px; width: 100%; }
+#noteForm textarea { resize: vertical; }
+#noteForm .primary { justify-self: start; }
+.note { border-bottom: 1px solid var(--divider); padding: 9px 0; overflow-wrap: anywhere; }
+.note strong { color: var(--text); display: block; }
+@media (min-width: 611px) {
+  body { background: var(--desktop); }
+  .app { width: 610px; margin: 0 auto; margin-inline: auto; background: var(--page); }
+  main { padding-inline: 13px; }
+  .editarea, .result-area { padding-inline: 23px 14px; }
+  .collection { padding-inline: 23px; }
+  #input, #output { font-size: 2rem; }
+}
+@media (max-width: 350px) {
+  .topbar { padding-inline: 13px 8px; }
+  .topbar h1 { font-size: 1.12rem; }
+  .text-tools { gap: 2px; }
+  #micLabel { font-size: .7rem; }
+  .translate { padding-inline: 10px; }
+  .sec-head .linkbtn { font-size: .76rem; }
+}
+@media (hover: hover) {
+  .icon:enabled:hover, .nav button:hover, .languagebar select:enabled:hover { background: var(--tint); }
+  .primary:enabled:hover { background: var(--accent-hover); }
+  .mic[data-phase="recording"]:hover { background: var(--record-hover); }
+  .linkbtn:enabled:hover, .phrase-list button:hover { color: var(--link-hover); }
+}
+@media (prefers-reduced-motion: reduce) { .mic[data-phase="recording"] { animation: none; } }
+.models-credit { color: var(--muted); font-size: .86rem; line-height: 1.5; margin: 16px 0 8px; }
+.models-credit summary { cursor: pointer; font-weight: 600; }
+.models-credit p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <h1><button type="button" id="home" aria-label="Shona Voice, к переводу"><img class="app-mark" alt="" width="32" height="32" src="data:image/png;base64,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">Shona Voice</button></h1>
+    <button type="button" class="icon top-action" id="settings" aria-label="Настройки" title="Настройки"><i data-i="settings"></i></button>
+  </header>
+  <main>
+    <div id="translator">
+      <section class="desk surface" aria-label="Перевод текста">
+        <div class="languagebar" role="group" aria-label="Направление перевода">
+          <label><span class="sr">Исходный язык</span><select id="srcLang"><option value="ru">Русский</option><option value="sn">Шона</option></select></label>
+          <button type="button" class="icon swap" id="swap" aria-label="Поменять языки местами" title="Поменять языки местами"><i data-i="swap"></i></button>
+          <label><span class="sr">Язык перевода</span><select id="dstLang"><option value="sn">Шона</option><option value="ru">Русский</option></select></label>
+        </div>
+        <div class="editarea" data-state="idle">
+          <div class="input-row">
+            <label class="sr" for="input">Текст для перевода</label>
+            <textarea id="input" aria-describedby="counter" spellcheck="false" autocorrect="off" autocomplete="off" rows="2" placeholder="Введите текст…" lang="ru"></textarea>
+            <button type="button" class="icon" id="clear" title="Очистить текст" aria-label="Очистить текст"><i data-i="x"></i></button>
+          </div>
+          <div class="text-tools">
+            <small id="counter">0 / 2000</small>
+            <span id="micLabel">Голосовой ввод</span>
+            <button type="button" class="primary translate" id="translate">Перевести</button>
+            <button type="button" class="icon mic" id="mic" data-phase="idle" aria-label="Записать голос" aria-describedby="micHint"><i data-i="mic"></i></button>
+            <span id="micHint" class="sr">Нажмите для записи или удерживайте, пока говорите.</span>
+          </div>
+        </div>
+        <div class="result-area">
+          <div id="output" class="placeholder" lang="sn" aria-live="polite">Здесь появится перевод</div>
+          <div class="result-tools">
+            <button type="button" class="icon listen" id="listen" title="Озвучить перевод"><i data-i="sound"></i><span class="sr">Озвучить</span></button>
+            <div class="side-tools">
+              <button type="button" class="icon" id="copy" title="Скопировать перевод" aria-label="Скопировать перевод"><i data-i="copy"></i></button>
+              <button type="button" class="icon" id="save" title="Сохранить перевод" aria-label="Сохранить перевод" aria-pressed="false"><i data-i="bookmark"></i></button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <p id="message" class="message" role="status" hidden></p>
+      <div id="voiceReview" class="review surface" hidden><span>Ваша запись</span><audio controls id="recorded" preload="metadata" aria-label="Прослушать свою запись"></audio><button type="button" class="linkbtn" id="discard">Удалить запись</button></div>
+    </div>
+    <section id="collection" class="surface collection" aria-labelledby="collectionTitle" hidden>
+      <div class="sec-head"><h2 id="collectionTitle">Избранное</h2><button type="button" class="linkbtn" id="back"><i data-i="west"></i>К переводу</button></div>
+      <label class="search"><i data-i="search"></i><input id="filter" type="search" placeholder="Найти фразу" aria-label="Найти фразу"></label>
+      <div class="phrase-list" id="collectionList"></div>
+      <p class="empty" id="empty" hidden></p>
+    </section>
+  </main>
+  <nav class="nav" aria-label="Разделы">
+    <button type="button" data-view="translate" aria-current="page"><i data-i="text"></i><span>Перевод</span></button>
+    <button type="button" data-view="saved"><i data-i="bookmark"></i><span>Избранное</span></button>
+  </nav>
+</div>
+<dialog id="dialog" aria-labelledby="modalTitle">
+  <div class="modalhead"><h2 id="modalTitle"></h2><button type="button" class="icon" id="close" aria-label="Закрыть"><i data-i="x"></i></button></div>
+  <section id="settingsPane" hidden>
+    <fieldset class="theme-picker">
+      <legend>Тема</legend>
+      <div class="theme-options">
+        <label class="theme-option"><input type="radio" name="theme" value="dark" id="theme-dark" checked><span><i data-i="moon"></i>Тёмная</span></label>
+        <label class="theme-option"><input type="radio" name="theme" value="light" id="theme-light"><span><i data-i="sun"></i>Светлая</span></label>
+        <label class="theme-option"><input type="radio" name="theme" value="system" id="theme-system"><span><i data-i="system"></i>Как в системе</span></label>
+      </div>
+    </fieldset>
+    <section class="settings-group" aria-labelledby="translationSettings">
+      <h3 id="translationSettings">Перевод без интернета</h3>
+      <div class="model-card" id="modelStatus" role="status" tabindex="-1" data-ready="false">
+        <span class="status-dot" aria-hidden="true"></span>
+        <div><strong id="modelTitle">Перевод ещё не настроен</strong><p id="modelInfo"></p></div>
+      </div>
+    </section>
+    <section class="settings-group" aria-labelledby="voiceSettings">
+      <h3 id="voiceSettings">Микрофон и озвучивание</h3>
+      <p id="recInfo"></p>
+      <label class="checkline"><span><strong>Проверять текст после записи</strong><small>Можно исправить распознанные слова перед переводом.</small></span><input type="checkbox" id="reviewText" checked></label>
+      <label class="checkline"><span><strong>Читать перевод вслух после записи</strong><small>Для введённого текста есть кнопка озвучивания.</small></span><input type="checkbox" id="autoSpeak" checked></label>
+    </section>
+    <details class="models-credit"><summary>О приложении и моделях</summary><p>Для перевода Shona Voice использует NLLB-200 от Meta AI. За распознавание и озвучивание отвечают модели MMS от Meta AI. Модели распространяются по лицензии Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0).</p><p>В приложении используются ONNX Runtime и SentencePiece. Сведения об исходных моделях, авторах и изменениях включены в APK.</p></details>
+    <button type="button" id="feedback" class="linkbtn feedback"><i data-i="comment"></i>Обратная связь<i data-i="east"></i></button>
+  </section>
+  <section id="feedbackPane" hidden>
+    <form id="noteForm">
+      <label for="part">Раздел</label><select id="part"><option>Главный экран</option><option>Оформление</option><option>Микрофон и запись</option><option>Ввод текста и перевод</option><option>Избранное</option></select>
+      <label for="note">Что оставить или изменить?</label><textarea id="note" maxlength="1200" rows="3" placeholder="Ваш комментарий"></textarea><button class="primary" id="addNote">Добавить заметку</button>
+    </form>
+    <div id="notes"></div>
+    <button type="button" class="linkbtn" id="copyNotes"><i data-i="copy"></i>Скопировать для чата</button>
+    <p class="fine" id="noteStatus" aria-live="polite"></p>
+  </section>
+</dialog>
+<script>(() => {
+  'use strict';
+
+  class VoiceInput {
+    constructor({
+      button,
+      getLang,
+      onState = () => {},
+      onText = () => {},
+      onAudio = () => {},
+      onNotice = () => {},
+      maxSeconds = 12
+    }) {
+      Object.assign(this, {
+        button,
+        getLang,
+        onState,
+        onText,
+        onAudio,
+        onNotice,
+        maxSeconds
+      });
+      this.phase = 'idle';
+      this.session = null;
+      this.press = null;
+      this.blockClickUntil = 0;
+      button.style.touchAction = 'none';
+      button.style.userSelect = 'none';
+      button.style.webkitTouchCallout = 'none';
+      button.addEventListener('contextmenu', event => event.preventDefault());
+      if ('PointerEvent' in window) {
+        button.addEventListener('pointerdown', event => {
+          if (!event.isPrimary || event.button !== 0 || this.press || button.disabled) return;
+          event.preventDefault();
+          button.focus({
+            preventScroll: true
+          });
+          try {
+            button.setPointerCapture(event.pointerId);
+          } catch (_) {}
+          this.beginPress(event.pointerId);
+        });
+        window.addEventListener('pointerup', event => this.endPress(event.pointerId));
+        window.addEventListener('pointercancel', event => {
+          var _this$press;
+          if (((_this$press = this.press) === null || _this$press === void 0 ? void 0 : _this$press.key) !== event.pointerId) return;
+          this.cancel();
+          this.blockClickUntil = performance.now() + 500;
+        });
+      }
+      const actionKey = key => key === 'Enter' || key === ' ';
+      button.addEventListener('keydown', event => {
+        if (!actionKey(event.key)) return;
+        event.preventDefault();
+        if (!event.repeat && !this.press && !button.disabled) this.beginPress(event.key);
+      });
+      window.addEventListener('keyup', event => {
+        var _this$press2;
+        if (actionKey(event.key) && ((_this$press2 = this.press) === null || _this$press2 === void 0 ? void 0 : _this$press2.key) === event.key) {
+          event.preventDefault();
+          this.endPress(event.key);
+        }
+      });
+      button.addEventListener('click', event => {
+        if (performance.now() < this.blockClickUntil || this.press) return;
+        if (event.detail === 0 || !('PointerEvent' in window)) this.toggle();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) this.cancel();
+      });
+      window.addEventListener('pagehide', () => this.cancel());
+    }
+    setPhase(value) {
+      this.phase = value;
+      this.onState(value);
+    }
+    toggle() {
+      if (this.phase === 'idle') this.start();else if (this.phase === 'requesting' || this.phase === 'recording') this.stop();
+    }
+    beginPress(key) {
+      this.press = {
+        key,
+        started: performance.now(),
+        wasIdle: this.phase === 'idle'
+      };
+      this.toggle();
+    }
+    endPress(key) {
+      const press = this.press;
+      if (!press || press.key !== key) return;
+      this.press = null;
+      this.blockClickUntil = performance.now() + 500;
+      if (press.wasIdle && performance.now() - press.started >= 380) this.stop();
+    }
+    async start() {
+      var _navigator$mediaDevic;
+      if (this.phase !== 'idle') return;
+      if (!((_navigator$mediaDevic = navigator.mediaDevices) !== null && _navigator$mediaDevic !== void 0 && _navigator$mediaDevic.getUserMedia) || !window.MediaRecorder) {
+        this.onNotice('Запись микрофона здесь недоступна. Откройте приложение Android, запустите Start.cmd на компьютере или введите текст вручную.');
+        return;
+      }
+      const session = {
+        parts: [],
+        audioDone: false
+      };
+      this.session = session;
+      this.setPhase('requesting');
+      this.onNotice('');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true
+        });
+        if (session !== this.session) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        session.stream = stream;
+        const recorder = session.recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = event => {
+          if (session === this.session && event.data.size) session.parts.push(event.data);
+        };
+        recorder.onstop = () => {
+          if (session !== this.session) return;
+          session.audioDone = true;
+          stream.getTracks().forEach(track => track.stop());
+          if (this.phase === 'recording') this.stop();
+          this.finishIfReady(session);
+        };
+        recorder.onerror = () => {
+          if (session === this.session) {
+            this.cancel();
+            this.onNotice('Запись прервалась. Проверьте микрофон и попробуйте ещё раз.');
+          }
+        };
+        recorder.start();
+        this.onAudio(null);
+        this.setPhase('recording');
+        session.limit = setTimeout(() => {
+          if (session === this.session) this.stop();
+        }, this.maxSeconds * 1000);
+      } catch (error) {
+        if (session !== this.session) return;
+        this.cancel();
+        if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+          this.onNotice('Разрешите доступ к микрофону в настройках браузера. В режиме предпросмотра можно ввести текст вручную.');
+        } else if (error.name === 'NotFoundError') {
+          this.onNotice('Микрофон не найден. Подключите микрофон или введите текст вручную.');
+        } else {
+          this.onNotice('Не удалось начать запись. Проверьте, доступен ли микрофон браузеру.');
+        }
+      }
+    }
+    stop() {
+      const session = this.session;
+      if (!session || this.phase === 'finishing') return;
+      if (this.phase === 'requesting') {
+        this.cancel();
+        this.onNotice('Запись ещё не началась. После разрешения доступа нажмите микрофон ещё раз.');
+        return;
+      }
+      this.setPhase('finishing');
+      clearTimeout(session.limit);
+      try {
+        var _session$recorder;
+        if (((_session$recorder = session.recorder) === null || _session$recorder === void 0 ? void 0 : _session$recorder.state) !== 'inactive') session.recorder.stop();
+      } catch (_) {}
+      this.finishIfReady(session);
+    }
+    finishIfReady(session) {
+      if (session !== this.session || this.phase !== 'finishing' || !session.audioDone) return;
+      const clip = session.parts.length ? new Blob(session.parts, {
+        type: session.recorder.mimeType || session.parts[0].type
+      }) : null;
+      this.release(session);
+      this.setPhase('idle');
+      if (clip) this.onAudio(clip);
+      if (clip) this.onNotice('Можно прослушать запись и ввести текст для перевода.');else this.onNotice('Запись получилась пустой. Попробуйте ещё раз или введите текст.');
+    }
+    release(session) {
+      var _session$stream;
+      this.session = null;
+      clearTimeout(session.limit);
+      try {
+        var _session$recorder2;
+        if (((_session$recorder2 = session.recorder) === null || _session$recorder2 === void 0 ? void 0 : _session$recorder2.state) === 'recording') session.recorder.stop();
+      } catch (_) {}
+      (_session$stream = session.stream) === null || _session$stream === void 0 || _session$stream.getTracks().forEach(track => track.stop());
+    }
+    cancel() {
+      this.press = null;
+      if (!this.session) return;
+      this.release(this.session);
+      this.setPhase('idle');
+    }
+  }
+  window.voicePcm16 = async function (blob) {
+    const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OfflineContext) throw new Error('Этот браузер не поддерживает преобразование аудиозаписи.');
+    const context = new OfflineContext(1, 1, 16000);
+    const bytes = await blob.arrayBuffer();
+    const audio = await context.decodeAudioData(bytes);
+    const channels = Array.from({
+      length: audio.numberOfChannels
+    }, (_, i) => audio.getChannelData(i));
+    const count = Math.min(audio.length, 12 * 16000);
+    if (count < 3200) throw new Error('Слишком короткая запись. Произнесите фразу целиком.');
+    const pcm = new ArrayBuffer(count * 2);
+    const result = new DataView(pcm);
+    for (let i = 0; i < count; i++) {
+      let mono = 0;
+      for (const ch of channels) mono += ch[i];
+      mono = Math.min(1, Math.max(-1, mono / channels.length));
+      result.setInt16(i * 2, Math.round(mono * (mono < 0 ? 32768 : 32767)), true);
+    }
+    return pcm;
+  };
+  window.VoiceInput = window.NikitaDevice ? window.NikitaDevice.voiceInput(VoiceInput) : VoiceInput;
+})();</script>
+<script>((_window$matchMedia, _window, _systemTheme$addListe, _window$speechSynthes) => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const paths = {
+    text: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 8h10m-5 0v8m-2 0h4"/>',
+    east: '<path d="M4 12h15m-5-5 5 5-5 5"/>',
+    west: '<path d="M20 12H5m5 5-5-5 5-5"/>',
+    use: '<path d="M5 17 18 6M9 6h9v9"/>',
+    mic: '<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5.5 10.5v1a6.5 6.5 0 0 0 13 0v-1M12 18v4m-3 0h6"/>',
+    bookmark: '<path d="M6 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4z"/>',
+    comment: '<path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM7 9h10M7 12h6"/>',
+    swap: '<path d="M3 8h17m-4-4 4 4-4 4M21 16H4m4 4-4-4 4-4"/>',
+    copy: '<rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3"/>',
+    sound: '<path d="m4 9 4 0 5-4v14l-5-4H4zM16 8a6 6 0 0 1 0 8m2.5-10.5a9 9 0 0 1 0 13"/>',
+    settings: '<path d="M3 7h6m5 0h7M3 17h11m5 0h2"/><circle cx="11.5" cy="7" r="2.5"/><circle cx="16.5" cy="17" r="2.5"/>',
+    x: '<path d="m6 6 12 12M6 18 18 6"/>',
+    search: '<circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/>',
+    moon: '<path d="M20.8 14.1A9 9 0 0 1 9.9 3.2 9 9 0 1 0 20.8 14.1Z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M19 5l-1.5 1.5m-11 11L5 19"/>',
+    system: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M9 21h6m-3-4v4"/>',
+    stop: '<rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" stroke="none"/>'
+  };
+  function icon(k) {
+    return '<svg aria-hidden="true" focusable="false" class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">' + paths[k] + '</svg>';
+  }
+  document.querySelectorAll('[data-i]').forEach(n => n.outerHTML = icon(n.dataset.i));
+  const langs = {
+    ru: 'Русский',
+    sn: 'Шона'
+  };
+  const MAX_INPUT = 2000;
+  const units = value => Array.from(value);
+  const device = window.NikitaDevice;
+  const localEndpoint = !device && ['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname) && /^https?:$/.test(location.protocol);
+  let voiceDraft = false;
+  function loadPreference(id, fallback) {
+    try {
+      var _JSON$parse;
+      return (_JSON$parse = JSON.parse(localStorage.getItem('nv2.' + id))) !== null && _JSON$parse !== void 0 ? _JSON$parse : fallback;
+    } catch (_unused) {
+      return fallback;
+    }
+  }
+  for (const id of ['autoSpeak', 'reviewText']) {
+    $(id).checked = loadPreference(id, true);
+    $(id).onchange = () => store(id, $(id).checked);
+  }
+  const key = s => s.toLowerCase().replace(/ё/g, 'е').replace(/[^0-9A-Za-z\xAA\xB2\xB3\xB5\xB9\xBA\xBC-\xBE\xC0-\xD6\xD8-\xF6\xF8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0370-\u0374\u0376\u0377\u037A-\u037D\u037F\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u048A-\u052F\u0531-\u0556\u0559\u0560-\u0588\u05D0-\u05EA\u05EF-\u05F2\u0620-\u064A\u0660-\u0669\u066E\u066F\u0671-\u06D3\u06D5\u06E5\u06E6\u06EE-\u06FC\u06FF\u0710\u0712-\u072F\u074D-\u07A5\u07B1\u07C0-\u07EA\u07F4\u07F5\u07FA\u0800-\u0815\u081A\u0824\u0828\u0840-\u0858\u0860-\u086A\u0870-\u0887\u0889-\u088E\u08A0-\u08C9\u0904-\u0939\u093D\u0950\u0958-\u0961\u0966-\u096F\u0971-\u0980\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BD\u09CE\u09DC\u09DD\u09DF-\u09E1\u09E6-\u09F1\u09F4-\u09F9\u09FC\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A59-\u0A5C\u0A5E\u0A66-\u0A6F\u0A72-\u0A74\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABD\u0AD0\u0AE0\u0AE1\u0AE6-\u0AEF\u0AF9\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3D\u0B5C\u0B5D\u0B5F-\u0B61\u0B66-\u0B6F\u0B71-\u0B77\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BD0\u0BE6-\u0BF2\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C39\u0C3D\u0C58-\u0C5A\u0C5D\u0C60\u0C61\u0C66-\u0C6F\u0C78-\u0C7E\u0C80\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBD\u0CDD\u0CDE\u0CE0\u0CE1\u0CE6-\u0CEF\u0CF1\u0CF2\u0D04-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D\u0D4E\u0D54-\u0D56\u0D58-\u0D61\u0D66-\u0D78\u0D7A-\u0D7F\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0DE6-\u0DEF\u0E01-\u0E30\u0E32\u0E33\u0E40-\u0E46\u0E50-\u0E59\u0E81\u0E82\u0E84\u0E86-\u0E8A\u0E8C-\u0EA3\u0EA5\u0EA7-\u0EB0\u0EB2\u0EB3\u0EBD\u0EC0-\u0EC4\u0EC6\u0ED0-\u0ED9\u0EDC-\u0EDF\u0F00\u0F20-\u0F33\u0F40-\u0F47\u0F49-\u0F6C\u0F88-\u0F8C\u1000-\u102A\u103F-\u1049\u1050-\u1055\u105A-\u105D\u1061\u1065\u1066\u106E-\u1070\u1075-\u1081\u108E\u1090-\u1099\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u1369-\u137C\u1380-\u138F\u13A0-\u13F5\u13F8-\u13FD\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u16EE-\u16F8\u1700-\u1711\u171F-\u1731\u1740-\u1751\u1760-\u176C\u176E-\u1770\u1780-\u17B3\u17D7\u17DC\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1820-\u1878\u1880-\u1884\u1887-\u18A8\u18AA\u18B0-\u18F5\u1900-\u191E\u1946-\u196D\u1970-\u1974\u1980-\u19AB\u19B0-\u19C9\u19D0-\u19DA\u1A00-\u1A16\u1A20-\u1A54\u1A80-\u1A89\u1A90-\u1A99\u1AA7\u1B05-\u1B33\u1B45-\u1B4C\u1B50-\u1B59\u1B83-\u1BA0\u1BAE-\u1BE5\u1C00-\u1C23\u1C40-\u1C49\u1C4D-\u1C7D\u1C80-\u1C8A\u1C90-\u1CBA\u1CBD-\u1CBF\u1CE9-\u1CEC\u1CEE-\u1CF3\u1CF5\u1CF6\u1CFA\u1D00-\u1DBF\u1E00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u2070\u2071\u2074-\u2079\u207F-\u2089\u2090-\u209C\u2102\u2107\u210A-\u2113\u2115\u2119-\u211D\u2124\u2126\u2128\u212A-\u212D\u212F-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2150-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2C00-\u2CE4\u2CEB-\u2CEE\u2CF2\u2CF3\u2CFD\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D80-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u2E2F\u3005-\u3007\u3021-\u3029\u3031-\u3035\u3038-\u303C\u3041-\u3096\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312F\u3131-\u318E\u3192-\u3195\u31A0-\u31BF\u31F0-\u31FF\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\u3400-\u4DBF\u4E00-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA62B\uA640-\uA66E\uA67F-\uA69D\uA6A0-\uA6EF\uA717-\uA71F\uA722-\uA788\uA78B-\uA7CD\uA7D0\uA7D1\uA7D3\uA7D5-\uA7DC\uA7F2-\uA801\uA803-\uA805\uA807-\uA80A\uA80C-\uA822\uA830-\uA835\uA840-\uA873\uA882-\uA8B3\uA8D0-\uA8D9\uA8F2-\uA8F7\uA8FB\uA8FD\uA8FE\uA900-\uA925\uA930-\uA946\uA960-\uA97C\uA984-\uA9B2\uA9CF-\uA9D9\uA9E0-\uA9E4\uA9E6-\uA9FE\uAA00-\uAA28\uAA40-\uAA42\uAA44-\uAA4B\uAA50-\uAA59\uAA60-\uAA76\uAA7A\uAA7E-\uAAAF\uAAB1\uAAB5\uAAB6\uAAB9-\uAABD\uAAC0\uAAC2\uAADB-\uAADD\uAAE0-\uAAEA\uAAF2-\uAAF4\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uAB30-\uAB5A\uAB5C-\uAB69\uAB70-\uABE2\uABF0-\uABF9\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D\uFB1F-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE70-\uFE74\uFE76-\uFEFC\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC\u{10000}-\u{1000B}\u{1000D}-\u{10026}\u{10028}-\u{1003A}\u{1003C}\u{1003D}\u{1003F}-\u{1004D}\u{10050}-\u{1005D}\u{10080}-\u{100FA}\u{10107}-\u{10133}\u{10140}-\u{10178}\u{1018A}\u{1018B}\u{10280}-\u{1029C}\u{102A0}-\u{102D0}\u{102E1}-\u{102FB}\u{10300}-\u{10323}\u{1032D}-\u{1034A}\u{10350}-\u{10375}\u{10380}-\u{1039D}\u{103A0}-\u{103C3}\u{103C8}-\u{103CF}\u{103D1}-\u{103D5}\u{10400}-\u{1049D}\u{104A0}-\u{104A9}\u{104B0}-\u{104D3}\u{104D8}-\u{104FB}\u{10500}-\u{10527}\u{10530}-\u{10563}\u{10570}-\u{1057A}\u{1057C}-\u{1058A}\u{1058C}-\u{10592}\u{10594}\u{10595}\u{10597}-\u{105A1}\u{105A3}-\u{105B1}\u{105B3}-\u{105B9}\u{105BB}\u{105BC}\u{105C0}-\u{105F3}\u{10600}-\u{10736}\u{10740}-\u{10755}\u{10760}-\u{10767}\u{10780}-\u{10785}\u{10787}-\u{107B0}\u{107B2}-\u{107BA}\u{10800}-\u{10805}\u{10808}\u{1080A}-\u{10835}\u{10837}\u{10838}\u{1083C}\u{1083F}-\u{10855}\u{10858}-\u{10876}\u{10879}-\u{1089E}\u{108A7}-\u{108AF}\u{108E0}-\u{108F2}\u{108F4}\u{108F5}\u{108FB}-\u{1091B}\u{10920}-\u{10939}\u{10980}-\u{109B7}\u{109BC}-\u{109CF}\u{109D2}-\u{10A00}\u{10A10}-\u{10A13}\u{10A15}-\u{10A17}\u{10A19}-\u{10A35}\u{10A40}-\u{10A48}\u{10A60}-\u{10A7E}\u{10A80}-\u{10A9F}\u{10AC0}-\u{10AC7}\u{10AC9}-\u{10AE4}\u{10AEB}-\u{10AEF}\u{10B00}-\u{10B35}\u{10B40}-\u{10B55}\u{10B58}-\u{10B72}\u{10B78}-\u{10B91}\u{10BA9}-\u{10BAF}\u{10C00}-\u{10C48}\u{10C80}-\u{10CB2}\u{10CC0}-\u{10CF2}\u{10CFA}-\u{10D23}\u{10D30}-\u{10D39}\u{10D40}-\u{10D65}\u{10D6F}-\u{10D85}\u{10E60}-\u{10E7E}\u{10E80}-\u{10EA9}\u{10EB0}\u{10EB1}\u{10EC2}-\u{10EC4}\u{10F00}-\u{10F27}\u{10F30}-\u{10F45}\u{10F51}-\u{10F54}\u{10F70}-\u{10F81}\u{10FB0}-\u{10FCB}\u{10FE0}-\u{10FF6}\u{11003}-\u{11037}\u{11052}-\u{1106F}\u{11071}\u{11072}\u{11075}\u{11083}-\u{110AF}\u{110D0}-\u{110E8}\u{110F0}-\u{110F9}\u{11103}-\u{11126}\u{11136}-\u{1113F}\u{11144}\u{11147}\u{11150}-\u{11172}\u{11176}\u{11183}-\u{111B2}\u{111C1}-\u{111C4}\u{111D0}-\u{111DA}\u{111DC}\u{111E1}-\u{111F4}\u{11200}-\u{11211}\u{11213}-\u{1122B}\u{1123F}\u{11240}\u{11280}-\u{11286}\u{11288}\u{1128A}-\u{1128D}\u{1128F}-\u{1129D}\u{1129F}-\u{112A8}\u{112B0}-\u{112DE}\u{112F0}-\u{112F9}\u{11305}-\u{1130C}\u{1130F}\u{11310}\u{11313}-\u{11328}\u{1132A}-\u{11330}\u{11332}\u{11333}\u{11335}-\u{11339}\u{1133D}\u{11350}\u{1135D}-\u{11361}\u{11380}-\u{11389}\u{1138B}\u{1138E}\u{11390}-\u{113B5}\u{113B7}\u{113D1}\u{113D3}\u{11400}-\u{11434}\u{11447}-\u{1144A}\u{11450}-\u{11459}\u{1145F}-\u{11461}\u{11480}-\u{114AF}\u{114C4}\u{114C5}\u{114C7}\u{114D0}-\u{114D9}\u{11580}-\u{115AE}\u{115D8}-\u{115DB}\u{11600}-\u{1162F}\u{11644}\u{11650}-\u{11659}\u{11680}-\u{116AA}\u{116B8}\u{116C0}-\u{116C9}\u{116D0}-\u{116E3}\u{11700}-\u{1171A}\u{11730}-\u{1173B}\u{11740}-\u{11746}\u{11800}-\u{1182B}\u{118A0}-\u{118F2}\u{118FF}-\u{11906}\u{11909}\u{1190C}-\u{11913}\u{11915}\u{11916}\u{11918}-\u{1192F}\u{1193F}\u{11941}\u{11950}-\u{11959}\u{119A0}-\u{119A7}\u{119AA}-\u{119D0}\u{119E1}\u{119E3}\u{11A00}\u{11A0B}-\u{11A32}\u{11A3A}\u{11A50}\u{11A5C}-\u{11A89}\u{11A9D}\u{11AB0}-\u{11AF8}\u{11BC0}-\u{11BE0}\u{11BF0}-\u{11BF9}\u{11C00}-\u{11C08}\u{11C0A}-\u{11C2E}\u{11C40}\u{11C50}-\u{11C6C}\u{11C72}-\u{11C8F}\u{11D00}-\u{11D06}\u{11D08}\u{11D09}\u{11D0B}-\u{11D30}\u{11D46}\u{11D50}-\u{11D59}\u{11D60}-\u{11D65}\u{11D67}\u{11D68}\u{11D6A}-\u{11D89}\u{11D98}\u{11DA0}-\u{11DA9}\u{11EE0}-\u{11EF2}\u{11F02}\u{11F04}-\u{11F10}\u{11F12}-\u{11F33}\u{11F50}-\u{11F59}\u{11FB0}\u{11FC0}-\u{11FD4}\u{12000}-\u{12399}\u{12400}-\u{1246E}\u{12480}-\u{12543}\u{12F90}-\u{12FF0}\u{13000}-\u{1342F}\u{13441}-\u{13446}\u{13460}-\u{143FA}\u{14400}-\u{14646}\u{16100}-\u{1611D}\u{16130}-\u{16139}\u{16800}-\u{16A38}\u{16A40}-\u{16A5E}\u{16A60}-\u{16A69}\u{16A70}-\u{16ABE}\u{16AC0}-\u{16AC9}\u{16AD0}-\u{16AED}\u{16B00}-\u{16B2F}\u{16B40}-\u{16B43}\u{16B50}-\u{16B59}\u{16B5B}-\u{16B61}\u{16B63}-\u{16B77}\u{16B7D}-\u{16B8F}\u{16D40}-\u{16D6C}\u{16D70}-\u{16D79}\u{16E40}-\u{16E96}\u{16F00}-\u{16F4A}\u{16F50}\u{16F93}-\u{16F9F}\u{16FE0}\u{16FE1}\u{16FE3}\u{17000}-\u{187F7}\u{18800}-\u{18CD5}\u{18CFF}-\u{18D08}\u{1AFF0}-\u{1AFF3}\u{1AFF5}-\u{1AFFB}\u{1AFFD}\u{1AFFE}\u{1B000}-\u{1B122}\u{1B132}\u{1B150}-\u{1B152}\u{1B155}\u{1B164}-\u{1B167}\u{1B170}-\u{1B2FB}\u{1BC00}-\u{1BC6A}\u{1BC70}-\u{1BC7C}\u{1BC80}-\u{1BC88}\u{1BC90}-\u{1BC99}\u{1CCF0}-\u{1CCF9}\u{1D2C0}-\u{1D2D3}\u{1D2E0}-\u{1D2F3}\u{1D360}-\u{1D378}\u{1D400}-\u{1D454}\u{1D456}-\u{1D49C}\u{1D49E}\u{1D49F}\u{1D4A2}\u{1D4A5}\u{1D4A6}\u{1D4A9}-\u{1D4AC}\u{1D4AE}-\u{1D4B9}\u{1D4BB}\u{1D4BD}-\u{1D4C3}\u{1D4C5}-\u{1D505}\u{1D507}-\u{1D50A}\u{1D50D}-\u{1D514}\u{1D516}-\u{1D51C}\u{1D51E}-\u{1D539}\u{1D53B}-\u{1D53E}\u{1D540}-\u{1D544}\u{1D546}\u{1D54A}-\u{1D550}\u{1D552}-\u{1D6A5}\u{1D6A8}-\u{1D6C0}\u{1D6C2}-\u{1D6DA}\u{1D6DC}-\u{1D6FA}\u{1D6FC}-\u{1D714}\u{1D716}-\u{1D734}\u{1D736}-\u{1D74E}\u{1D750}-\u{1D76E}\u{1D770}-\u{1D788}\u{1D78A}-\u{1D7A8}\u{1D7AA}-\u{1D7C2}\u{1D7C4}-\u{1D7CB}\u{1D7CE}-\u{1D7FF}\u{1DF00}-\u{1DF1E}\u{1DF25}-\u{1DF2A}\u{1E030}-\u{1E06D}\u{1E100}-\u{1E12C}\u{1E137}-\u{1E13D}\u{1E140}-\u{1E149}\u{1E14E}\u{1E290}-\u{1E2AD}\u{1E2C0}-\u{1E2EB}\u{1E2F0}-\u{1E2F9}\u{1E4D0}-\u{1E4EB}\u{1E4F0}-\u{1E4F9}\u{1E5D0}-\u{1E5ED}\u{1E5F0}-\u{1E5FA}\u{1E7E0}-\u{1E7E6}\u{1E7E8}-\u{1E7EB}\u{1E7ED}\u{1E7EE}\u{1E7F0}-\u{1E7FE}\u{1E800}-\u{1E8C4}\u{1E8C7}-\u{1E8CF}\u{1E900}-\u{1E943}\u{1E94B}\u{1E950}-\u{1E959}\u{1EC71}-\u{1ECAB}\u{1ECAD}-\u{1ECAF}\u{1ECB1}-\u{1ECB4}\u{1ED01}-\u{1ED2D}\u{1ED2F}-\u{1ED3D}\u{1EE00}-\u{1EE03}\u{1EE05}-\u{1EE1F}\u{1EE21}\u{1EE22}\u{1EE24}\u{1EE27}\u{1EE29}-\u{1EE32}\u{1EE34}-\u{1EE37}\u{1EE39}\u{1EE3B}\u{1EE42}\u{1EE47}\u{1EE49}\u{1EE4B}\u{1EE4D}-\u{1EE4F}\u{1EE51}\u{1EE52}\u{1EE54}\u{1EE57}\u{1EE59}\u{1EE5B}\u{1EE5D}\u{1EE5F}\u{1EE61}\u{1EE62}\u{1EE64}\u{1EE67}-\u{1EE6A}\u{1EE6C}-\u{1EE72}\u{1EE74}-\u{1EE77}\u{1EE79}-\u{1EE7C}\u{1EE7E}\u{1EE80}-\u{1EE89}\u{1EE8B}-\u{1EE9B}\u{1EEA1}-\u{1EEA3}\u{1EEA5}-\u{1EEA9}\u{1EEAB}-\u{1EEBB}\u{1F100}-\u{1F10C}\u{1FBF0}-\u{1FBF9}\u{20000}-\u{2A6DF}\u{2A700}-\u{2B739}\u{2B740}-\u{2B81D}\u{2B820}-\u{2CEA1}\u{2CEB0}-\u{2EBE0}\u{2EBF0}-\u{2EE5D}\u{2F800}-\u{2FA1D}\u{30000}-\u{3134A}\u{31350}-\u{323AF}]+/gu, ' ').trim();
+  const otherLanguage = lang => lang === 'ru' ? 'sn' : 'ru';
+  const dest = () => otherLanguage(from);
+  const readList = k => {
+    try {
+      const value = JSON.parse(localStorage.getItem('nv2.' + k) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch (_unused2) {
+      return [];
+    }
+  };
+  function store(k, v) {
+    try {
+      localStorage.setItem('nv2.' + k, JSON.stringify(v));
+      return true;
+    } catch (_unused3) {
+      return false;
+    }
+  }
+  const themeChoices = ['dark', 'light', 'system'];
+  const systemTheme = (_window$matchMedia = (_window = window).matchMedia) === null || _window$matchMedia === void 0 ? void 0 : _window$matchMedia.call(_window, '(prefers-color-scheme: light)');
+  let themeChoice = loadPreference('theme', 'dark');
+  if (!themeChoices.includes(themeChoice)) themeChoice = 'dark';
+  function applyTheme() {
+    const skin = themeChoice === 'system' ? systemTheme !== null && systemTheme !== void 0 && systemTheme.matches ? 'light' : 'dark' : themeChoice;
+    const root = document.documentElement;
+    root.dataset.theme = skin;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = getComputedStyle(root).getPropertyValue('--page').trim();
+    $('theme-' + themeChoice).checked = true;
+  }
+  for (const id of themeChoices) {
+    $('theme-' + id).onchange = () => {
+      themeChoice = id;
+      store('theme', id);
+      applyTheme();
+    };
+  }
+  function syncSystemTheme() {
+    if (themeChoice === 'system') applyTheme();
+  }
+  if (systemTheme !== null && systemTheme !== void 0 && systemTheme.addEventListener) systemTheme.addEventListener('change', syncSystemTheme);else systemTheme === null || systemTheme === void 0 || (_systemTheme$addListe = systemTheme.addListener) === null || _systemTheme$addListe === void 0 || _systemTheme$addListe.call(systemTheme, syncSystemTheme);
+  applyTheme();
+  let from = 'ru',
+    result = '',
+    phase = 'idle',
+    pending = false,
+    epoch = 0,
+    activeClip = null,
+    voiceURL = null;
+  let saved = readList('saved'),
+    notes = readList('notes'),
+    cap = {},
+    clipBusy = false,
+    request = null;
+  let playing = null,
+    speechURL = null,
+    soundToken = 0;
+  function message(t = '') {
+    $('message').textContent = t;
+    $('message').hidden = !t;
+  }
+  function invalidate() {
+    var _request;
+    epoch++;
+    (_request = request) === null || _request === void 0 || _request.abort();
+    request = null;
+    pending = false;
+    clipBusy = false;
+  }
+  function row() {
+    return {
+      [from]: $('input').value.trim(),
+      [dest()]: result
+    };
+  }
+  function equal(a, b) {
+    return a.ru === b.ru && a.sn === b.sn;
+  }
+  function controls() {
+    const voiceBusy = phase !== 'idle',
+      val = $('input').value;
+    $('translate').disabled = !val.trim() || voiceBusy || pending;
+    $('translate').textContent = pending ? 'Обработка…' : 'Перевести';
+    $('input').readOnly = voiceBusy;
+    $('mic').disabled = phase === 'finishing' || pending;
+    for (const id of ['srcLang', 'dstLang', 'swap']) $(id).disabled = voiceBusy;
+    $('copy').disabled = $('save').disabled = $('listen').disabled = !result || voiceBusy || pending;
+    $('clear').disabled = !val || voiceBusy;
+    const count = units(val).length;
+    $('counter').textContent = count + ' / ' + MAX_INPUT;
+    $('input').classList.toggle('long-text', count > 160);
+    const has = result && saved.some(p => equal(p, row()));
+    $('save').setAttribute('aria-pressed', String(!!has));
+    $('save').title = $('save').ariaLabel = has ? 'Убрать из избранного' : 'Сохранить перевод';
+  }
+  function setResult(text = '', hint = 'Здесь появится перевод') {
+    result = text;
+    $('output').textContent = text || hint;
+    $('output').classList.toggle('long-text', text.length > 220);
+    $('output').classList.toggle('placeholder', !text);
+    controls();
+  }
+  function speechStop() {
+    soundToken++;
+    $('listen').dataset.active = '';
+    if (playing) {
+      playing.pause();
+      playing = null;
+    }
+    if (speechURL) URL.revokeObjectURL(speechURL);
+    speechURL = null;
+    if (device) device.stopSpeech();else if (window.speechSynthesis) window.speechSynthesis.cancel();
+    $('listen').innerHTML = icon('sound') + '<span class="sr">Озвучить перевод</span>';
+    $('listen').title = 'Озвучить перевод';
+  }
+  function dropClip() {
+    if (voiceURL) URL.revokeObjectURL(voiceURL);
+    voiceURL = null;
+    activeClip = null;
+    $('recorded').pause();
+    $('recorded').removeAttribute('src');
+    $('recorded').load();
+    $('voiceReview').hidden = true;
+  }
+  function putPair(p) {
+    if (units(p[from]).length > MAX_INPUT) {
+      message('Этот перевод длиннее 2000 символов. Скопируйте его и переводите частями.');
+      return;
+    }
+    voiceDraft = false;
+    invalidate();
+    voice.cancel();
+    speechStop();
+    dropClip();
+    message();
+    $('input').value = p[from];
+    setResult(p[dest()]);
+  }
+  function direction() {
+    $('srcLang').value = from;
+    $('dstLang').value = dest();
+    $('input').lang = from;
+    $('input').setAttribute('aria-label', 'Текст для перевода. ' + langs[from]);
+    $('output').lang = dest();
+    $('swap').setAttribute('aria-label', 'Поменять языки местами. Исходный язык: ' + langs[from] + ', язык перевода: ' + langs[dest()]);
+  }
+  function setDirection(nextFrom) {
+    if (nextFrom === from || phase !== 'idle') return;
+    const oldResult = result,
+      oldInput = $('input').value;
+    if (units(oldResult).length > MAX_INPUT) {
+      direction();
+      message('Результат длиннее 2000 символов. Скопируйте его и переводите частями.');
+      return;
+    }
+    voiceDraft = false;
+    invalidate();
+    speechStop();
+    dropClip();
+    message();
+    from = nextFrom;
+    direction();
+    $('input').value = oldResult || oldInput;
+    setResult(oldResult ? oldInput : '');
+    if (oldInput.trim() && !oldResult) message('Направление изменено. Проверьте исходный текст перед переводом.');
+  }
+  $('swap').onclick = () => setDirection(dest());
+  $('srcLang').onchange = e => setDirection(e.target.value);
+  $('dstLang').onchange = e => setDirection(otherLanguage(e.target.value));
+  function inputChanged() {
+    const field = $('input'),
+      chars = units(field.value);
+    invalidate();
+    speechStop();
+    message();
+    if (chars.length > MAX_INPUT) {
+      field.value = chars.slice(0, MAX_INPUT).join('');
+      message('В поле помещаются 2000 символов. Оставшуюся часть переведите отдельно.');
+    }
+    setResult();
+  }
+  $('input').oninput = inputChanged;
+  function limitInsertion(event, inserted) {
+    if (!event.cancelable || typeof inserted !== 'string' || !inserted) return;
+    const field = $('input');
+    const left = field.selectionStart,
+      right = field.selectionEnd;
+    const available = MAX_INPUT - units(field.value.slice(0, left) + field.value.slice(right)).length;
+    const added = units(inserted);
+    if (added.length <= available) return;
+    event.preventDefault();
+    field.setRangeText(added.slice(0, Math.max(0, available)).join(''), left, right, 'end');
+    inputChanged();
+    message('Достигнут лимит 2000 символов. Оставшуюся часть переведите отдельно.');
+  }
+  $('input').addEventListener('beforeinput', event => {
+    if (!event.isComposing && event.inputType.startsWith('insert')) limitInsertion(event, event.data);
+  });
+  $('input').addEventListener('paste', event => {
+    if (event.clipboardData) limitInsertion(event, event.clipboardData.getData('text/plain'));
+  });
+  $('clear').onclick = () => {
+    voice.cancel();
+    voiceDraft = false;
+    $('input').value = '';
+    dropClip();
+    inputChanged();
+    $('input').focus();
+  };
+  $('input').onkeydown = e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (!$('translate').disabled) translate();
+    }
+  };
+  async function api(path, body, type, signal) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': type
+      },
+      body,
+      signal
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw Error(err.error || 'Локальная модель недоступна.');
+    }
+    return res;
+  }
+  function numberSequence(text) {
+    const normalized = text.normalize('NFKC').replace(/−/g, '-').replace(/([0-9])[ \u00a0\u202f](?=[0-9]{3}(?![0-9]))/g, '$1');
+    const numbers = normalized.match(/[+\-]?[0-9]+(?:[.,][0-9]+)*(?:[ \t]*[%‰])?/g) || [];
+    return numbers.map(value => value.replace(/,/g, '.').replace(/\s/g, '')).join('|');
+  }
+  async function translate() {
+    const text = $('input').value.trim();
+    if (!text) return;
+    invalidate();
+    speechStop();
+    message();
+    setResult();
+    if (!cap.translation) {
+      openModal(false, true);
+      return;
+    }
+    const id = epoch;
+    pending = true;
+    controls();
+    setResult('', 'Выполняется перевод…');
+    request = new AbortController();
+    try {
+      var _translated;
+      let translated;
+      if (device) translated = await device.translate(text, from, dest(), request.signal);else {
+        const response = await api('/api/translate', JSON.stringify({
+          text,
+          from,
+          to: dest()
+        }), 'application/json', request.signal);
+        translated = (await response.json()).text;
+      }
+      if (id !== epoch) return;
+      if (!((_translated = translated) !== null && _translated !== void 0 && _translated.trim())) throw Error('Модель вернула пустой перевод. Попробуйте уточнить формулировку.');
+      setResult(translated);
+      const numbersDiffer = numberSequence(text) !== numberSequence(translated);
+      if (numbersDiffer) message('Запись чисел в переводе отличается от исходной. Сверьте суммы, даты и номера.');
+      if (voiceDraft && $('autoSpeak').checked && !numbersDiffer) listen();
+    } catch (e) {
+      if (id === epoch) {
+        setResult();
+        message(e.message);
+      }
+    } finally {
+      if (id === epoch) {
+        pending = false;
+        request = null;
+        controls();
+      }
+    }
+  }
+  $('translate').onclick = translate;
+  function renderCollection() {
+    const search = key($('filter').value);
+    const rows = saved.filter(x => typeof x.ru === 'string' && typeof x.sn === 'string' && [x.ru, x.sn].some(v => key(v).includes(search)));
+    const list = $('collectionList');
+    list.replaceChildren();
+    for (const p of rows) {
+      const btn = document.createElement('button');
+      btn.className = 'phrase';
+      const block = document.createElement('span'),
+        a = document.createElement('strong'),
+        b = document.createElement('span');
+      a.textContent = p[from];
+      b.textContent = p[dest()];
+      b.className = 'secondary';
+      block.append(a, b);
+      btn.append(block);
+      btn.insertAdjacentHTML('beforeend', icon('use'));
+      btn.onclick = () => {
+        changeView('translate');
+        putPair(p);
+      };
+      list.append(btn);
+    }
+    $('empty').textContent = search ? 'Совпадений нет.' : 'Избранное пока пусто. Нажмите на закладку рядом с переводом.';
+    $('empty').hidden = !!rows.length;
+  }
+  function changeView(v) {
+    voice.cancel();
+    invalidate();
+    speechStop();
+    message();
+    $('translator').hidden = v !== 'translate';
+    $('collection').hidden = v === 'translate';
+    const names = {
+      translate: 'Перевод',
+      saved: 'Избранное'
+    };
+    document.title = 'Shona Voice · ' + names[v];
+    document.querySelectorAll('.nav [data-view]').forEach(n => {
+      if (n.dataset.view === v) n.setAttribute('aria-current', 'page');else n.removeAttribute('aria-current');
+    });
+    if (v !== 'translate') {
+      $('collectionTitle').textContent = names[v];
+      $('filter').value = '';
+      renderCollection();
+    } else if (!result) setResult();
+    window.scrollTo(0, 0);
+    controls();
+  }
+  document.querySelectorAll('[data-view]').forEach(n => n.onclick = () => changeView(n.dataset.view));
+  $('home').onclick = $('back').onclick = () => changeView('translate');
+  $('filter').oninput = renderCollection;
+  $('save').onclick = () => {
+    if (!result) return;
+    const item = row(),
+      exists = saved.some(p => equal(p, item));
+    saved = exists ? saved.filter(p => !equal(p, item)) : [item, ...saved];
+    const ok = store('saved', saved);
+    controls();
+    message(exists ? 'Перевод убран из избранного.' : ok ? 'Перевод сохранён.' : 'Перевод сохранён до закрытия вкладки.');
+  };
+  async function copyText(text) {
+    var _navigator$clipboard;
+    if ((_navigator$clipboard = navigator.clipboard) !== null && _navigator$clipboard !== void 0 && _navigator$clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (_unused4) {}
+    }
+    const box = document.createElement('textarea');
+    box.style.cssText = 'position:fixed;opacity:0;top:0';
+    box.value = text;
+    ($('dialog').open ? $('dialog') : document.body).append(box);
+    box.select();
+    const ok = document.execCommand('copy');
+    box.remove();
+    if (!ok) throw Error('Выделите текст и скопируйте вручную.');
+  }
+  $('copy').onclick = async () => {
+    try {
+      await copyText(result);
+      message('Перевод скопирован.');
+    } catch (e) {
+      message(e.message);
+    }
+  };
+  async function listen() {
+    if (playing || $('listen').dataset.active === '1') {
+      speechStop();
+      $('listen').dataset.active = '';
+      return;
+    }
+    if (dest() === 'sn' && /[0-9\xB2\xB3\xB9\xBC-\xBE\u0660-\u0669\u06F0-\u06F9\u07C0-\u07C9\u0966-\u096F\u09E6-\u09EF\u09F4-\u09F9\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0B72-\u0B77\u0BE6-\u0BF2\u0C66-\u0C6F\u0C78-\u0C7E\u0CE6-\u0CEF\u0D58-\u0D5E\u0D66-\u0D78\u0DE6-\u0DEF\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F33\u1040-\u1049\u1090-\u1099\u1369-\u137C\u16EE-\u16F0\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1946-\u194F\u19D0-\u19DA\u1A80-\u1A89\u1A90-\u1A99\u1B50-\u1B59\u1BB0-\u1BB9\u1C40-\u1C49\u1C50-\u1C59\u2070\u2074-\u2079\u2080-\u2089\u2150-\u2182\u2185-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2CFD\u3007\u3021-\u3029\u3038-\u303A\u3192-\u3195\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\uA620-\uA629\uA6E6-\uA6EF\uA830-\uA835\uA8D0-\uA8D9\uA900-\uA909\uA9D0-\uA9D9\uA9F0-\uA9F9\uAA50-\uAA59\uABF0-\uABF9\uFF10-\uFF19\u{10107}-\u{10133}\u{10140}-\u{10178}\u{1018A}\u{1018B}\u{102E1}-\u{102FB}\u{10320}-\u{10323}\u{10341}\u{1034A}\u{103D1}-\u{103D5}\u{104A0}-\u{104A9}\u{10858}-\u{1085F}\u{10879}-\u{1087F}\u{108A7}-\u{108AF}\u{108FB}-\u{108FF}\u{10916}-\u{1091B}\u{109BC}\u{109BD}\u{109C0}-\u{109CF}\u{109D2}-\u{109FF}\u{10A40}-\u{10A48}\u{10A7D}\u{10A7E}\u{10A9D}-\u{10A9F}\u{10AEB}-\u{10AEF}\u{10B58}-\u{10B5F}\u{10B78}-\u{10B7F}\u{10BA9}-\u{10BAF}\u{10CFA}-\u{10CFF}\u{10D30}-\u{10D39}\u{10D40}-\u{10D49}\u{10E60}-\u{10E7E}\u{10F1D}-\u{10F26}\u{10F51}-\u{10F54}\u{10FC5}-\u{10FCB}\u{11052}-\u{1106F}\u{110F0}-\u{110F9}\u{11136}-\u{1113F}\u{111D0}-\u{111D9}\u{111E1}-\u{111F4}\u{112F0}-\u{112F9}\u{11450}-\u{11459}\u{114D0}-\u{114D9}\u{11650}-\u{11659}\u{116C0}-\u{116C9}\u{116D0}-\u{116E3}\u{11730}-\u{1173B}\u{118E0}-\u{118F2}\u{11950}-\u{11959}\u{11BF0}-\u{11BF9}\u{11C50}-\u{11C6C}\u{11D50}-\u{11D59}\u{11DA0}-\u{11DA9}\u{11F50}-\u{11F59}\u{11FC0}-\u{11FD4}\u{12400}-\u{1246E}\u{16130}-\u{16139}\u{16A60}-\u{16A69}\u{16AC0}-\u{16AC9}\u{16B50}-\u{16B59}\u{16B5B}-\u{16B61}\u{16D70}-\u{16D79}\u{16E80}-\u{16E96}\u{1CCF0}-\u{1CCF9}\u{1D2C0}-\u{1D2D3}\u{1D2E0}-\u{1D2F3}\u{1D360}-\u{1D378}\u{1D7CE}-\u{1D7FF}\u{1E140}-\u{1E149}\u{1E2F0}-\u{1E2F9}\u{1E4F0}-\u{1E4F9}\u{1E5F1}-\u{1E5FA}\u{1E8C7}-\u{1E8CF}\u{1E950}-\u{1E959}\u{1EC71}-\u{1ECAB}\u{1ECAD}-\u{1ECAF}\u{1ECB1}-\u{1ECB4}\u{1ED01}-\u{1ED2D}\u{1ED2F}-\u{1ED3D}\u{1F100}-\u{1F10C}\u{1FBF0}-\u{1FBF9}]/u.test(result)) {
+      message('Голос шона может пропустить цифры. Сверьте числа на экране. Для озвучивания запишите их словами.');
+      return;
+    }
+    speechStop();
+    const token = soundToken,
+      lang = dest(),
+      text = result;
+    message();
+    $('listen').innerHTML = icon('stop') + '<span class="sr">Остановить озвучивание</span>';
+    $('listen').title = 'Остановить озвучивание';
+    $('listen').dataset.active = '1';
+    const done = () => {
+      if (token === soundToken) {
+        speechStop();
+        $('listen').dataset.active = '';
+      }
+    };
+    try {
+      if (device) {
+        await device.speak(text, lang);
+        done();
+        return;
+      }
+      if (lang === 'sn' && cap.shonaTts) {
+        const res = await api('/api/speak?lang=sn', JSON.stringify({
+          text
+        }), 'application/json');
+        const blob = await res.blob();
+        if (token !== soundToken) return;
+        speechURL = URL.createObjectURL(blob);
+        const player = playing = new Audio(speechURL);
+        player.onended = done;
+        player.onerror = () => {
+          if (token === soundToken) {
+            done();
+            message('Не удалось воспроизвести звук.');
+          }
+        };
+        await player.play();
+        return;
+      }
+      const synth = window.speechSynthesis;
+      const v = synth === null || synth === void 0 ? void 0 : synth.getVoices().find(v => v.localService && v.lang.toLowerCase().split(/[-_]/)[0] === lang);
+      if (!v) throw Error(lang === 'ru' ? 'На устройстве не найден локальный русский голос. Установите русский голос в настройках синтеза речи.' : 'Для озвучивания своего перевода на шона откройте прототип через Start.cmd.');
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = v.lang;
+      u.voice = v;
+      u.onend = done;
+      u.onerror = () => {
+        if (token === soundToken) {
+          done();
+          message('Системный голос не смог прочитать текст.');
+        }
+      };
+      synth.speak(u);
+    } catch (e) {
+      if (token === soundToken) {
+        done();
+        message(e.message);
+      }
+    }
+  }
+  $('listen').onclick = listen;
+  async function transcribe(blob) {
+    const id = epoch;
+    clipBusy = true;
+    pending = true;
+    controls();
+    message('Распознавание речи…');
+    try {
+      var _ans$text;
+      const pcm = await window.voicePcm16(blob);
+      if (epoch !== id) return;
+      request = new AbortController();
+      const ans = await (await api('/api/transcribe?lang=' + from, pcm, 'application/octet-stream', request.signal)).json();
+      if (epoch !== id) return;
+      clipBusy = false;
+      pending = false;
+      request = null;
+      controls();
+      if ((_ans$text = ans.text) !== null && _ans$text !== void 0 && _ans$text.trim()) fillTranscript(ans.text);else message('Не удалось разобрать речь. Повторите запись или введите фразу.');
+    } catch (e) {
+      if (id === epoch) {
+        clipBusy = false;
+        pending = false;
+        controls();
+        message(e.message);
+      }
+    }
+  }
+  function fillTranscript(text) {
+    $('input').value = text;
+    voiceDraft = true;
+    inputChanged();
+    if ($('reviewText').checked) {
+      message('Проверьте расшифровку и нажмите «Перевести».');
+      $('input').scrollIntoView({
+        block: 'nearest'
+      });
+    } else translate();
+  }
+  const recordingStates = {
+    idle: ['Голосовой ввод', 'Записать голос', 'Нажмите для записи или удерживайте, пока говорите.'],
+    requesting: ['Доступ к микрофону…', 'Отменить запрос записи', 'Разрешите доступ к микрофону.'],
+    recording: ['Идёт запись', 'Остановить запись', 'Отпустите кнопку после удержания или нажмите ещё раз.'],
+    finishing: ['Завершение записи…', 'Завершение записи', '']
+  };
+  function renderRecording(state) {
+    const button = $('mic'),
+      [label, action, hint] = recordingStates[state];
+    phase = state;
+    button.dataset.phase = state;
+    button.closest('.editarea').dataset.state = state;
+    button.title = state === 'idle' ? hint : action;
+    button.classList.toggle('recording', state === 'recording');
+    button.setAttribute('aria-pressed', String(state === 'recording'));
+    button.setAttribute('aria-label', action);
+    button.firstElementChild.outerHTML = icon(state === 'recording' ? 'stop' : 'mic');
+    $('micLabel').textContent = label;
+    $('micHint').textContent = hint;
+    controls();
+  }
+  const voice = new VoiceInput({
+    button: $('mic'),
+    getLang: () => from,
+    onState: s => {
+      if (s === 'requesting') {
+        voiceDraft = false;
+        invalidate();
+        speechStop();
+        message();
+        dropClip();
+      }
+      renderRecording(s);
+    },
+    onNotice: t => {
+      if (!clipBusy) message(t);
+    },
+    onText: fillTranscript,
+    onAudio: (b, options) => {
+      dropClip();
+      if (!b) return;
+      activeClip = b;
+      voiceURL = URL.createObjectURL(b);
+      $('recorded').src = voiceURL;
+      $('voiceReview').hidden = false;
+      if (cap.asr && !(options !== null && options !== void 0 && options.transcribed)) transcribe(b);
+    }
+  });
+  $('discard').onclick = () => {
+    invalidate();
+    dropClip();
+    message();
+    controls();
+  };
+  function openModal(feedback, showModelStatus = false) {
+    voice.cancel();
+    speechStop();
+    $('feedbackPane').hidden = !feedback;
+    $('settingsPane').hidden = feedback;
+    $('modalTitle').textContent = feedback ? 'Обратная связь' : 'Настройки';
+    if (feedback) {
+      renderNotes();
+      $('noteStatus').textContent = 'Заметки хранятся на этом телефоне. Их можно скопировать и отправить в чат.';
+    } else refreshMode();
+    if (!$('dialog').open) $('dialog').showModal();
+    if (feedback) $('part').focus();else if (showModelStatus) $('modelStatus').focus();
+  }
+  $('feedback').onclick = () => openModal(true);
+  $('settings').onclick = () => openModal(false);
+  $('close').onclick = () => $('dialog').close();
+  $('dialog').onclick = e => {
+    if (e.target === $('dialog')) {
+      const r = $('dialog').getBoundingClientRect();
+      if (e.clientX < r.left || e.clientY < r.top || e.clientX > r.right || e.clientY > r.bottom) $('dialog').close();
+    }
+  };
+  function renderNotes() {
+    const box = $('notes');
+    box.replaceChildren();
+    notes.forEach(n => {
+      const line = document.createElement('p');
+      line.className = 'note';
+      const tag = document.createElement('strong');
+      tag.textContent = n.part;
+      line.append(tag, document.createTextNode(n.text));
+      box.append(line);
+    });
+    $('copyNotes').disabled = !notes.length;
+  }
+  $('noteForm').onsubmit = e => {
+    e.preventDefault();
+    const text = $('note').value.trim();
+    if (!text) {
+      $('note').focus();
+      return;
+    }
+    notes.push({
+      part: $('part').value,
+      text
+    });
+    const saved = store('notes', notes);
+    $('note').value = '';
+    renderNotes();
+    $('noteStatus').textContent = saved ? 'Заметка сохранена.' : 'Заметка доступна до закрытия вкладки.';
+  };
+  $('copyNotes').onclick = async () => {
+    try {
+      await copyText(notes.map(n => n.part + ' — ' + n.text).join('\n'));
+      $('noteStatus').textContent = 'Скопировано. Вставьте замечания в чат.';
+    } catch (e) {
+      $('noteStatus').textContent = e.message;
+    }
+  };
+  function renderModelStatus() {
+    const ready = cap.translation === true;
+    $('modelStatus').dataset.ready = String(ready);
+    $('modelTitle').textContent = ready ? 'Можно переводить' : 'Перевод ещё не настроен';
+    $('modelInfo').textContent = ready ? 'Можно переводить с русского на шона и обратно. Текст и записи обрабатываются на телефоне.' : device ? 'Не удалось прочитать встроенные модели. Закройте приложение и откройте снова, чтобы проверить файлы.' : 'Модели не подключены. Чтобы переводить текст, запустите Start.cmd из комплекта для Windows или откройте Shona Voice на Android с установленными моделями.';
+    $('recInfo').textContent = cap.asr ? 'Записывайте до 12 секунд на русском или шона. Распознавание речи и озвучивание работают без интернета.' : 'Запись можно прослушать. Чтобы приложение превращало речь в текст, подключите модели.';
+  }
+  let statusRequest = 0;
+  function refreshMode() {
+    if (device) {
+      try {
+        cap = device.status() || {};
+      } catch (_unused5) {
+        cap = {};
+      }
+    }
+    renderModelStatus();
+    if (!localEndpoint) return;
+    const id = ++statusRequest;
+    fetch('/api/status', {
+      cache: 'no-store'
+    }).then(async response => response.ok ? await response.json() : {}).catch(() => {}).then(status => {
+      if (id !== statusRequest) return;
+      cap = status || {};
+      renderModelStatus();
+    });
+  }
+  $('recorded').onplay = () => speechStop();
+  window.addEventListener('pagehide', () => {
+    invalidate();
+    dropClip();
+    speechStop();
+  });
+  $('input').placeholder = 'Введите текст…';
+  $('input').value = '';
+  $('micLabel').setAttribute('role', 'status');
+  $('micLabel').setAttribute('aria-live', 'polite');
+  $('mic').setAttribute('aria-describedby', 'micHint');
+  direction();
+  setResult();
+  renderRecording('idle');
+  refreshMode();
+  if (!device) (_window$speechSynthes = window.speechSynthesis) === null || _window$speechSynthes === void 0 || _window$speechSynthes.getVoices();
+})();</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+Russian speech synthesis uses facebook/mms-tts-rus, a VITS model from Meta AI's Massively Multilingual Speech project. ONNX conversion by Will Wade and contributors. Original model and ONNX graph licensed under Creative Commons Attribution-NonCommercial 4.0 International. Model graph included unmodified. The token table has been converted to JSON and the application normalizes input text.
+Base model: https://huggingface.co/facebook/mms-tts-rus
+ONNX graph and token table: https://huggingface.co/willwade/mms-tts-multilingual-models-onnx/tree/4f49fc254f11ddb0e35fbf25b6e48b04463a6779/rus
+License: https://creativecommons.org/licenses/by-nc/4.0/

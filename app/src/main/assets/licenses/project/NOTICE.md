@@ -1,0 +1,13 @@
+# Авторы, исходные модели и изменения
+
+Файлы весов и голоса происходят из исследовательских проектов Meta AI. На них действует [Creative Commons Attribution–NonCommercial 4.0 International](https://creativecommons.org/licenses/by-nc/4.0/). Имена авторов конвертаций, идентификаторы версий и сведения о модификациях приведены ниже. Условия распространяются и на подготовленные для этого приложения производные веса.
+
+| Компонент | Происхождение | Изменения в этой сборке |
+| --- | --- | --- |
+| MMS ASR | [Meta AI, MMS-1B-all](https://huggingface.co/facebook/mms-1b-all), [Pratap и др., Scaling Speech Technology to 1,000+ Languages](https://arxiv.org/abs/2305.13516). Экспорт [OpenVoiceOS](https://huggingface.co/OpenVoiceOS/mms-1b-all-onnx/tree/6007394849e9b73c001ed688be99f5b6ad3f464c) | Зафиксированы адаптеры русского и шона, подготовлены словари CTC и совместимое представление весов ConvInteger. Оба графа читают один внешний файл весов |
+| NLLB-200 distilled 600M | [Meta AI, NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-600M), квантованный [экспорт Xenova](https://huggingface.co/Xenova/nllb-200-distilled-600M/tree/261c31d1a5732c67cdd16d80e8d6088507c7ccea) | Использованы INT8-графы. Приложение использует выбор выходного токена для одного направления, а для другого собирает из фиксированного графа локальную версию, возвращающую оценки нескольких продолжений. Исходный словарь SentencePiece сохранён |
+| MMS-TTS-SNA | [Meta AI, голос шона](https://huggingface.co/facebook/mms-tts-sna), ONNX-пакет [willwade](https://huggingface.co/willwade/mms-tts-multilingual-models-onnx/tree/4f49fc254f11ddb0e35fbf25b6e48b04463a6779/sna) | Выбрана модель шона. Постоянные ядра Conv прошли статическое INT8-квантование и калибровку на фразах шона. Добавлено описание словаря |
+
+Для декодирования шона из обучающих транскрипций Google FLEURS рассчитана таблица частот сочетаний букв. Источник и лицензия таблицы указаны в `app/src/main/resources/asr_language/NOTICE.txt`. Примеры проверки основаны на [Google FLEURS](https://huggingface.co/datasets/google/fleurs), датасет опубликован под [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). В `examples/ru-to-shona.wav` слышна синтезированная озвучка машинного перевода тестовой строки 1926. Файлы записей дикторов в архив не включены.
+
+Среда инференса [Microsoft ONNX Runtime](https://github.com/microsoft/onnxruntime) распространяется под лицензией MIT. Токенизатор [Google SentencePiece](https://github.com/google/sentencepiece) и [Gradle](https://gradle.org/) используют Apache License 2.0. Соответствующие тексты и уведомления для исполняемых компонентов находятся в каталоге `licenses/`.

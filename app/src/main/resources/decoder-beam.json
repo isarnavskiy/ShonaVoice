@@ -1,0 +1,32 @@
+{
+  "source_sha256": "0e573b670a6de97dd519e037472fba930a0fa0ebbeb77090471d1d7696686af5",
+  "source_bytes": 475505928,
+  "sha256": "fc66796159d342776896d6517521c7add742d1591c66945b365c8e6601b8d857",
+  "bytes": 475506183,
+  "ops": [
+    {
+      "copy": [
+        0,
+        25
+      ]
+    },
+    {
+      "data": "xMve4gE="
+    },
+    {
+      "copy": [
+        30,
+        475505861
+      ]
+    },
+    {
+      "data": "CkYKEm5pa2l0YV9sYXN0X2xvZ2l0cxIOYmVhbV9sb2dfcHJvYnMiCkxvZ1NvZnRtYXgqFAoEYXhpcxj///////////8BoAECClAKDmJlYW1fbG9nX3Byb2JzCgZiZWFtX2sSDWJlYW1fbG9ncHJvYnMSC2JlYW1fdG9rZW5zIgRUb3BLKhQKBGF4aXMY////////////AaABAioPCAEQBzoBBEIGYmVhbV9rYikKDWJlYW1fbG9ncHJvYnMSGAoWCAESEgoMEgpiYXRjaF9zaXplCgIIBGInCgtiZWFtX3Rva2VucxIYChYIBxISCgwSCmJhdGNoX3NpemUKAggE"
+    },
+    {
+      "copy": [
+        475505891,
+        37
+      ]
+    }
+  ]
+}

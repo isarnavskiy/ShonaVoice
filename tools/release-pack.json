@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "path": "asr/model.int8.onnx_data",
+      "bytes": 1004264448,
+      "sha256": "8dc635552abf596fe4f2e287187b3ea856a7b6508f03530706f0ebb372b06e04"
+    },
+    {
+      "path": "asr/rus.onnx",
+      "bytes": 15335549,
+      "sha256": "2c1534adf85a2034b07cfae35af39da374361bb67a56a7583681642a28eaac9e"
+    },
+    {
+      "path": "asr/rus.tokens.json",
+      "bytes": 631,
+      "sha256": "c0f2f47384a14ed14f3a0d4fe8197a0594b06d968c4a78ae530e8240321920e3"
+    },
+    {
+      "path": "asr/sna.onnx",
+      "bytes": 15181829,
+      "sha256": "289cde641e26ba8e1043d36744815d7dbca2e3994d8196f5dfb32ffddcc59a58"
+    },
+    {
+      "path": "asr/sna.tokens.json",
+      "bytes": 445,
+      "sha256": "541d4da02ae56f0c3b35f721720a044dfb17a8c235952525d938af1627640952"
+    },
+    {
+      "path": "nllb/config.json",
+      "bytes": 54,
+      "sha256": "716851f5ec0cf06e8c12ab6b5a146b73d84effe36275f8c57f38188dfd88ac7e"
+    },
+    {
+      "path": "nllb/decoder.onnx",
+      "bytes": 475505928,
+      "sha256": "0e573b670a6de97dd519e037472fba930a0fa0ebbeb77090471d1d7696686af5"
+    },
+    {
+      "path": "nllb/encoder.onnx",
+      "bytes": 419120483,
+      "sha256": "5cde664eacba07a62f198857ec6c06e09572b1ebb77c8137f1fa99ac604a3a28"
+    },
+    {
+      "path": "nllb/sentencepiece.bpe.model",
+      "bytes": 4852054,
+      "sha256": "14bb8dfb35c0ffdea7bc01e56cea38b9e3d5efcdcb9c251d6b40538e1aab555a"
+    },
+    {
+      "path": "tts/sna/model.onnx",
+      "bytes": 38112357,
+      "sha256": "d14491f3a452e66afa76fcee9caa20d6d5591c033fb8432d3625ff561bfe1605"
+    },
+    {
+      "path": "tts/sna/voice.json",
+      "bytes": 1048,
+      "sha256": "d20d37515fa99fb11a8770c5a8ac2490ce0491153a64c03e39891e7eea6db76e"
+    },
+    {
+      "path": "tts/rus/model.onnx",
+      "bytes": 114021636,
+      "sha256": "3e606106d387482cd6dabbf4d78973ac12a54c382253d2afa41ea08dc0a8c0ca"
+    },
+    {
+      "path": "tts/rus/voice.json",
+      "bytes": 1422,
+      "sha256": "3fbbe1101c27f9bfa203e41c607c298cdf7f857e4950e951a6b2306a9ec4c895"
+    }
+  ]
+}
