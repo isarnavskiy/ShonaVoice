@@ -3,7 +3,6 @@ import argparse
 import hashlib
 import json
 import os
-import sys
 import tempfile
 import zipfile
 from pathlib import Path
