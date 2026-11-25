@@ -354,7 +354,10 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
 <script>(() => {
   'use strict';
 
+  const MAX_RECORDING_SECONDS = 30;
+
   class VoiceInput {
+    static get maxRecordingSeconds() { return MAX_RECORDING_SECONDS; }
     constructor({
       button,
       getLang,
@@ -362,7 +365,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
       onText = () => {},
       onAudio = () => {},
       onNotice = () => {},
-      maxSeconds = 12
+      maxSeconds = MAX_RECORDING_SECONDS
     }) {
       Object.assign(this, {
         button,
@@ -555,7 +558,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     const channels = Array.from({
       length: audio.numberOfChannels
     }, (_, i) => audio.getChannelData(i));
-    const count = Math.min(audio.length, 12 * 16000);
+    const count = Math.min(audio.length, MAX_RECORDING_SECONDS * 16000);
     if (count < 3200) throw new Error('Слишком короткая запись. Произнесите фразу целиком.');
     const pcm = new ArrayBuffer(count * 2);
     const result = new DataView(pcm);
@@ -1212,7 +1215,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     $('modelStatus').dataset.ready = String(ready);
     $('modelTitle').textContent = ready ? 'Можно переводить' : 'Перевод ещё не настроен';
     $('modelInfo').textContent = ready ? 'Можно переводить с русского на шона и обратно. Текст и записи обрабатываются на телефоне.' : device ? 'Не удалось прочитать встроенные модели. Закройте приложение и откройте снова, чтобы проверить файлы.' : 'Модели не подключены. Чтобы переводить текст, запустите Start.cmd из комплекта для Windows или откройте Shona Voice на Android с установленными моделями.';
-    $('recInfo').textContent = cap.asr ? 'Записывайте до 12 секунд на русском или шона. Распознавание речи и озвучивание работают без интернета.' : 'Запись можно прослушать. Чтобы приложение превращало речь в текст, подключите модели.';
+    $('recInfo').textContent = cap.asr ? 'Записывайте до ' + VoiceInput.maxRecordingSeconds + ' секунд на русском или шона. Распознавание речи и озвучивание работают без интернета.' : 'Запись можно прослушать. Чтобы приложение превращало речь в текст, подключите модели.';
   }
   let statusRequest = 0;
   function refreshMode() {

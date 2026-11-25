@@ -16,8 +16,8 @@ android {
         applicationId = "dev.nikita.voice.offline"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.0.0"
+        versionCode = 5
+        versionName = "1.0.1"
         ndk { abiFilters += "arm64-v8a" }
     }
     sourceSets["main"].assets.srcDir(rootProject.file("model-assets"))

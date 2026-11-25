@@ -13,6 +13,8 @@ import org.json.JSONObject
  */
 @SuppressLint("SetJavaScriptEnabled")
 internal class ConversationScreen(context: Context, bridge: DeviceBridge) : WebView(context) {
+    private companion object { const val AUDIO_PART_SIZE = 128 * 1024 }
+
     init {
         setBackgroundColor(context.getColor(R.color.voice_paper))
         fitsSystemWindows = true
@@ -41,6 +43,20 @@ internal class ConversationScreen(context: Context, bridge: DeviceBridge) : WebV
     }
 
     fun send(id: Int, type: String, value: String = "") {
+        if (type == "audio" && value.length > AUDIO_PART_SIZE) {
+            var start = 0
+            while (value.length - start > AUDIO_PART_SIZE) {
+                val end = start + AUDIO_PART_SIZE
+                sendEvent(id, "audio-part", value.substring(start, end))
+                start = end
+            }
+            sendEvent(id, type, value.substring(start))
+        } else {
+            sendEvent(id, type, value)
+        }
+    }
+
+    private fun sendEvent(id: Int, type: String, value: String) {
         val event = JSONObject().put("id", id).put("type", type).put("value", value)
         evaluateJavascript("window.NikitaDevice && window.NikitaDevice.receive($event)", null)
     }

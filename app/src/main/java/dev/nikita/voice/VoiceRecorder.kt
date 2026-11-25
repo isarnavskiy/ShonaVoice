@@ -10,10 +10,11 @@ import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
 class VoiceRecorder {
-    companion object { const val MAX_SECONDS = 12 }
+    companion object { const val MAX_SECONDS = 30 }
 
     private class Capture {
-        @Volatile var stopRequested = false
+        @Volatile var stopAtNanos = Long.MAX_VALUE
+        @Volatile var cancelled = false
         val done = CountDownLatch(1)
         var samples = ShortArray(0)
         var count = 0
@@ -26,21 +27,21 @@ class VoiceRecorder {
 
     /** The callback runs on the capture thread on timeout or failure. Call finish() on a worker. */
     @Synchronized
-    fun start(onLimit: () -> Unit) {
+    fun start(onStarted: () -> Unit, onLimit: () -> Unit) {
         check(active == null) { "Запись уже идёт." }
         val session = Capture()
         active = session
         thread(name = "Shona Voice microphone") {
             try {
                 synchronized(hardwareLock) {
-                    if (!session.stopRequested) capture(session)
+                    if (!session.cancelled && session.stopAtNanos == Long.MAX_VALUE) capture(session, onStarted)
                 }
             } catch (e: Exception) {
                 session.error = e
             } finally {
                 session.done.countDown()
             }
-            if (!session.stopRequested) onLimit()
+            if (!session.cancelled && session.stopAtNanos == Long.MAX_VALUE) onLimit()
         }
     }
 
@@ -48,7 +49,7 @@ class VoiceRecorder {
     @Synchronized
     fun stopCapture(): () -> FloatArray {
         val session = checkNotNull(active) { "Нет активной записи." }
-        session.stopRequested = true
+        session.stopAtNanos = SystemClock.elapsedRealtimeNanos()
         active = null
         return {
             session.done.await()
@@ -62,27 +63,40 @@ class VoiceRecorder {
 
     @Synchronized
     fun cancel() {
-        active?.stopRequested = true
+        active?.cancelled = true
         active = null
     }
 
     @SuppressLint("MissingPermission")
-    private fun capture(session: Capture) {
+    private fun capture(session: Capture, onStarted: () -> Unit) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
         val mic = openMicrophone()
         try {
-            if (session.stopRequested) return
+            if (session.cancelled || session.stopAtNanos != Long.MAX_VALUE) return
             val rate = mic.sampleRate
             val samples = ShortArray(rate * MAX_SECONDS)
             session.rate = rate
             session.samples = samples
+            val startedAt = SystemClock.elapsedRealtimeNanos()
             mic.startRecording()
             check(mic.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "Не удалось начать запись с микрофона." }
+            onStarted()
             var lastFrameAt = SystemClock.elapsedRealtime()
-            val deadline = lastFrameAt + MAX_SECONDS * 1_000L
             val chunk = maxOf(1, rate / 25)
-            while (!session.stopRequested && session.count < samples.size && SystemClock.elapsedRealtime() < deadline) {
-                val wanted = minOf(chunk, samples.size - session.count)
+            while (!session.cancelled) {
+                val stopAt = session.stopAtNanos
+                // A route can deliver its last packet slightly after the wall clock reaches 30 s.
+                // End automatic capture at the sample boundary; retain queued audio on manual stop.
+                val limit = if (stopAt == Long.MAX_VALUE) samples.size else {
+                    val elapsed = (stopAt - startedAt).coerceIn(0L, MAX_SECONDS * 1_000_000_000L)
+                    (elapsed * rate / 1_000_000_000L).toInt()
+                }
+                val wanted = minOf(chunk, limit - session.count)
+                if (wanted <= 0) {
+                    // A read that was in flight at manual release may finish after the cutoff.
+                    session.count = minOf(session.count, limit)
+                    break
+                }
                 val n = mic.read(samples, session.count, wanted, AudioRecord.READ_NON_BLOCKING)
                 when {
                     n > 0 -> {
@@ -90,6 +104,7 @@ class VoiceRecorder {
                         lastFrameAt = SystemClock.elapsedRealtime()
                     }
                     n == 0 -> {
+                        if (stopAt != Long.MAX_VALUE) break
                         check(SystemClock.elapsedRealtime() - lastFrameAt < 2_000) { "Микрофон перестал передавать звук." }
                         SystemClock.sleep(5)
                     }

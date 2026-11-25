@@ -77,6 +77,7 @@ if (!Promise.prototype.finally) {
         if (this.phase !== 'idle') return;
         this.setPhase('requesting');
         this.onNotice('');
+        const audioParts = [];
         const job = request(id => native.record(id, this.getLang()), (type, value) => {
           if (type === 'recording') {
             this.onAudio(null);
@@ -84,13 +85,19 @@ if (!Promise.prototype.finally) {
           } else if (type === 'finishing') {
             this.setPhase('finishing');
             this.onNotice('Обработка записи…');
-          } else if (type === 'audio') {
-            const bytes = Uint8Array.from(atob(value), ch => ch.charCodeAt(0));
-            this.onAudio(new Blob([bytes], {
-              type: 'audio/wav'
-            }), {
-              transcribed: true
-            });
+          } else if (type === 'audio-part' || type === 'audio') {
+            const binary = atob(value);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < bytes.length; i++) bytes[i] = binary.charCodeAt(i);
+            audioParts.push(bytes);
+            if (type === 'audio') {
+              this.onAudio(new Blob(audioParts, {
+                type: 'audio/wav'
+              }), {
+                transcribed: true
+              });
+              audioParts.length = 0;
+            }
           }
         });
         this.session = job;

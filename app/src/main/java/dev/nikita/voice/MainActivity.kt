@@ -200,9 +200,11 @@ class MainActivity : Activity() {
 
     private fun beginRecording(op: Operation) {
         try {
-            recorder.start { runOnUiThread { if (active === op) finishRecording(op.id) } }
+            recorder.start(
+                onStarted = { runOnUiThread { if (active === op && op.capturing) screen.send(op.id, "recording") } },
+                onLimit = { runOnUiThread { if (active === op && op.capturing) finishRecording(op.id) } }
+            )
             op.capturing = true
-            screen.send(op.id, "recording")
         } catch (e: Exception) {
             end(op, e.localizedMessage ?: "Не удалось открыть микрофон.")
         }

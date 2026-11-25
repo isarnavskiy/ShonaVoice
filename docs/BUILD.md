@@ -4,7 +4,8 @@
 
 ## Подготовить модели
 
-1. Скачайте [ShonaVoice-Offline.apk из релиза v1.0.0](https://github.com/isarnavskiy/ShonaVoice/releases/download/v1.0.0/ShonaVoice-Offline.apk).
+1. Скачайте [ShonaVoice-Offline.apk из релиза v1.0.1](https://github.com/isarnavskiy/ShonaVoice/releases/download/v1.0.1/ShonaVoice-Offline.apk).
+   Если файл версии 1.0.0 уже скачан, его тоже можно использовать: комплект моделей тот же.
 2. Откройте терминал в корне этого репозитория и передайте скрипту путь к скачанному файлу.
 
 ```console
@@ -13,10 +14,10 @@ python tools/prepare_models.py --apk "/path/to/ShonaVoice-Offline.apk"
 
 В Windows, если Python установлен через Python Launcher, используйте `py -3` вместо `python`. При успешной проверке появится сообщение `All 13 model files are ready.` Скрипт проверяет SHA-256 исходного APK и каждого извлечённого файла. Повторный запуск проверяет уже извлечённые файлы и заменяет повреждённые копии. Индекс моделей находится в [tools/release-pack.json](../tools/release-pack.json).
 
-| Что проверяет скрипт | Значение для v1.0.0 |
+| Что проверяет скрипт | Значение для v1.0.1 |
 | --- | --- |
-| Размер скачанного APK | 1 596 727 716 байт |
-| SHA-256 скачанного APK | `fedb71301685fbb2e39831a224ff8a24e6b08df83fc512e33b894d0a56843efb` |
+| Размер скачанного APK | 1 596 731 823 байт |
+| SHA-256 скачанного APK | `dfffa2939cfee833dc60abdb56302bbd1546e7360ddccab42b9c93d9b13a4b51` |
 | Проверенные файлы моделей | 13, всего 2 086 397 884 байта |
 | Каталог моделей на компьютере | `model-assets/embedded_models/` |
 | Каталог моделей в новом APK | `assets/embedded_models/` |
