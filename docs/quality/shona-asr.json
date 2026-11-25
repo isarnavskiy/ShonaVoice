@@ -1,0 +1,625 @@
+{
+  "version": 1,
+  "hardware": "Linux x86-64 CPU. Audio files recorded by speakers of Shona (FLEURS), not generated speech. The acoustic model and every frame score are shared between the two decoders.",
+  "dataset": {
+    "name": "Google FLEURS sn_zw",
+    "revision": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+    "license": "CC BY 4.0",
+    "source": "https://huggingface.co/datasets/google/fleurs/resolve/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/sn_zw/",
+    "sha256": {
+      "train.tsv": "7f347d4951b63922957524695b35ca2e3f6ecc35f2a58e1e9d6a78d26cb71be2",
+      "dev.tsv": "5fa67683825b9cf210675ff8fc40eee6e5d4074006cb6ec75757557f54442c47",
+      "test.tsv": "47244c88dae715ee4a32617ea3fe429280d278b3748fb4ee9e66ce062a346fab",
+      "audio/dev.tar.gz": "07c5fe2c105bac660cbd5fa81ea38ec95e463e04fbb88302646250e90167a555",
+      "audio/test.tar.gz": "f101b8a181fedb87b48456c73680a2673ce2940431bf8b6b6ee4beec3e8d83fd"
+    }
+  },
+  "prior_sources": {
+    "leipzig": {
+      "name": "Shona Web subcorpus (Zimbabwe) 2018, sna-zw_web_2018_100K",
+      "source": "https://downloads.wortschatz-leipzig.de/corpora/sna-zw_web_2018_100K.tar.gz",
+      "license": "CC BY-NC 4.0",
+      "license_metadata": "https://registry.text-plus.org/doc/collection/2d681440-333b-4f11-ba9b-d972845cf9a2?lang=en",
+      "sha256": "a821d2f8f69fb8a43b471f2fde27279992e39df7e9775defab92ebfa89def958",
+      "unique_normalized_sentences": 99851,
+      "count_weight": 1
+    },
+    "fleurs": {
+      "file": "train.tsv",
+      "sha256": "7f347d4951b63922957524695b35ca2e3f6ecc35f2a58e1e9d6a78d26cb71be2",
+      "unique_normalized_sentences": 1403,
+      "count_weight": 4
+    },
+    "builder": "tools/build_shona_prior.py",
+    "builder_sha256": "5f04cad0468fd8f179cef7cbdce6e325ddd2c215bcf0f1bc74dff99b3f6197f2",
+    "artifact_sha256": "2f93f87912e614fa70a6eac38af0239a8759c15f3615640bee7c318383c74488",
+    "overlap_with_dev_or_test_normalized_sentences": 0
+  },
+  "recognizer": {
+    "onnxruntime": "1.22.0 CPUExecutionProvider, ORT_ENABLE_BASIC, intra_op_num_threads=2, inter_op_num_threads=1, no memory pattern or CPU arena",
+    "source_files": {
+      "asr/model.int8.onnx_data": "8dc635552abf596fe4f2e287187b3ea856a7b6508f03530706f0ebb372b06e04",
+      "asr/sna.onnx": "289cde641e26ba8e1043d36744815d7dbca2e3994d8196f5dfb32ffddcc59a58",
+      "asr/sna.tokens.json": "541d4da02ae56f0c3b35f721720a044dfb17a8c235952525d938af1627640952"
+    },
+    "audio": "Mono 16 kHz float WAV converted to PCM16 by round(clip(x, -1, 32767/32768) * 32768), then divided by 32768 for float32 input. Each recording fits into one inference window."
+  },
+  "decoder": {
+    "baseline_git_commit": "dc6cef1bef0e9eed469746022669c47642e3f477",
+    "baseline_sha256": "c676ec3da55a74388a1290763e384e43c4ec11a6e129e9dbdc1199609df79930",
+    "baseline_order": 4,
+    "baseline_weight": 0.65,
+    "candidate_order": 5,
+    "candidate_weight": 0.4,
+    "algorithm": "Production Kotlin CtcDecoder for each version. Up to 8 beams and 8 frame candidates, threshold of 10 from the top score."
+  },
+  "evaluation": {
+    "selection": "In archive order, unique utterance IDs, at most 12 seconds. Use 12 dev recordings and 32 test recordings. Exclude training IDs in both splits; for test, also exclude all dev IDs and the 24 IDs used in the previous project evaluation. No dev or test transcripts used to fit the prior. Candidate weight chosen on dev before scoring test.",
+    "excluded_previous_test_ids": [
+      1796,
+      1908,
+      1802,
+      1700,
+      1934,
+      1991,
+      1998,
+      1781,
+      1972,
+      1727,
+      1814,
+      1941,
+      2003,
+      1828,
+      1702,
+      1747,
+      1870,
+      1770,
+      1756,
+      1917,
+      1981,
+      1884,
+      1687,
+      2006
+    ],
+    "metric": "Corpus-level Levenshtein distance on words (WER) and Unicode characters including spaces (CER). Before scoring, NFC, lowercase, replace Unicode punctuation with spaces and collapse whitespace.",
+    "dev_candidates": {
+      "0.4": {
+        "word_errors": 21,
+        "character_errors": 33
+      },
+      "0.65": {
+        "word_errors": 23,
+        "character_errors": 34
+      },
+      "0.9": {
+        "word_errors": 25,
+        "character_errors": 36
+      },
+      "1.2": {
+        "word_errors": 28,
+        "character_errors": 41
+      }
+    }
+  },
+  "splits": {
+    "dev": {
+      "summary": {
+        "seconds": 108.36,
+        "reference_words": 129,
+        "reference_characters": 1050,
+        "baseline_word_errors": 26,
+        "baseline_character_errors": 39,
+        "candidate_word_errors": 21,
+        "candidate_character_errors": 33,
+        "recordings": 12
+      },
+      "recordings": [
+        {
+          "id": "1587",
+          "file": "10025796746930914758.wav",
+          "seconds": 6.0,
+          "reference_words": 9,
+          "reference_characters": 65,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 2,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 2
+        },
+        {
+          "id": "1588",
+          "file": "10461764382228405815.wav",
+          "seconds": 9.72,
+          "reference_words": 13,
+          "reference_characters": 108,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 2,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 1
+        },
+        {
+          "id": "1559",
+          "file": "10652306966350178613.wav",
+          "seconds": 10.8,
+          "reference_words": 12,
+          "reference_characters": 97,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 1,
+          "candidate_word_errors": 0,
+          "candidate_character_errors": 0
+        },
+        {
+          "id": "1651",
+          "file": "10694690668111061104.wav",
+          "seconds": 10.86,
+          "reference_words": 19,
+          "reference_characters": 133,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 2,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 1
+        },
+        {
+          "id": "1560",
+          "file": "10763282404706770747.wav",
+          "seconds": 10.14,
+          "reference_words": 12,
+          "reference_characters": 89,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 1,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 1
+        },
+        {
+          "id": "1577",
+          "file": "10769805214014310972.wav",
+          "seconds": 4.68,
+          "reference_words": 6,
+          "reference_characters": 54,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 5,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 4
+        },
+        {
+          "id": "1638",
+          "file": "10866516823462164810.wav",
+          "seconds": 7.26,
+          "reference_words": 9,
+          "reference_characters": 89,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 5,
+          "candidate_word_errors": 4,
+          "candidate_character_errors": 6
+        },
+        {
+          "id": "1654",
+          "file": "11022167938025534398.wav",
+          "seconds": 11.88,
+          "reference_words": 11,
+          "reference_characters": 96,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 2,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 1
+        },
+        {
+          "id": "1612",
+          "file": "11219905422975764051.wav",
+          "seconds": 9.84,
+          "reference_words": 8,
+          "reference_characters": 65,
+          "baseline_word_errors": 0,
+          "baseline_character_errors": 0,
+          "candidate_word_errors": 0,
+          "candidate_character_errors": 0
+        },
+        {
+          "id": "1652",
+          "file": "11238933254876939746.wav",
+          "seconds": 10.02,
+          "reference_words": 6,
+          "reference_characters": 59,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 2,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 2
+        },
+        {
+          "id": "1607",
+          "file": "11396004072167178921.wav",
+          "seconds": 7.32,
+          "reference_words": 11,
+          "reference_characters": 87,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 1,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 1
+        },
+        {
+          "id": "1516",
+          "file": "11678230680444724641.wav",
+          "seconds": 9.84,
+          "reference_words": 13,
+          "reference_characters": 108,
+          "baseline_word_errors": 10,
+          "baseline_character_errors": 16,
+          "candidate_word_errors": 7,
+          "candidate_character_errors": 14
+        }
+      ]
+    },
+    "test": {
+      "summary": {
+        "seconds": 312.18,
+        "reference_words": 404,
+        "reference_characters": 3357,
+        "baseline_word_errors": 107,
+        "baseline_character_errors": 172,
+        "candidate_word_errors": 93,
+        "candidate_character_errors": 159,
+        "recordings": 32
+      },
+      "recordings": [
+        {
+          "id": "1739",
+          "file": "11801420685905386155.wav",
+          "seconds": 7.56,
+          "reference_words": 11,
+          "reference_characters": 95,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 3,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 3
+        },
+        {
+          "id": "1792",
+          "file": "1181342693068304586.wav",
+          "seconds": 10.68,
+          "reference_words": 12,
+          "reference_characters": 96,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 3,
+          "candidate_word_errors": 5,
+          "candidate_character_errors": 6
+        },
+        {
+          "id": "1977",
+          "file": "11816735884766610423.wav",
+          "seconds": 9.54,
+          "reference_words": 16,
+          "reference_characters": 115,
+          "baseline_word_errors": 5,
+          "baseline_character_errors": 7,
+          "candidate_word_errors": 5,
+          "candidate_character_errors": 7
+        },
+        {
+          "id": "1920",
+          "file": "11937030826551504400.wav",
+          "seconds": 8.52,
+          "reference_words": 14,
+          "reference_characters": 106,
+          "baseline_word_errors": 6,
+          "baseline_character_errors": 11,
+          "candidate_word_errors": 3,
+          "candidate_character_errors": 8
+        },
+        {
+          "id": "1661",
+          "file": "11971323434613548928.wav",
+          "seconds": 9.96,
+          "reference_words": 11,
+          "reference_characters": 96,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 1,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 2
+        },
+        {
+          "id": "1761",
+          "file": "11983983862048978984.wav",
+          "seconds": 11.76,
+          "reference_words": 13,
+          "reference_characters": 113,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 4,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 3
+        },
+        {
+          "id": "1737",
+          "file": "12206666314032929635.wav",
+          "seconds": 7.32,
+          "reference_words": 9,
+          "reference_characters": 84,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 3,
+          "candidate_word_errors": 3,
+          "candidate_character_errors": 3
+        },
+        {
+          "id": "1818",
+          "file": "12210823122071096532.wav",
+          "seconds": 10.44,
+          "reference_words": 14,
+          "reference_characters": 113,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 1,
+          "candidate_word_errors": 0,
+          "candidate_character_errors": 0
+        },
+        {
+          "id": "1826",
+          "file": "1224777848069489137.wav",
+          "seconds": 10.68,
+          "reference_words": 13,
+          "reference_characters": 102,
+          "baseline_word_errors": 0,
+          "baseline_character_errors": 0,
+          "candidate_word_errors": 0,
+          "candidate_character_errors": 0
+        },
+        {
+          "id": "1890",
+          "file": "12249662154538567709.wav",
+          "seconds": 10.56,
+          "reference_words": 17,
+          "reference_characters": 139,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 4,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 5
+        },
+        {
+          "id": "1669",
+          "file": "12381684903631139889.wav",
+          "seconds": 9.48,
+          "reference_words": 11,
+          "reference_characters": 95,
+          "baseline_word_errors": 5,
+          "baseline_character_errors": 14,
+          "candidate_word_errors": 4,
+          "candidate_character_errors": 13
+        },
+        {
+          "id": "1897",
+          "file": "1240499165477252495.wav",
+          "seconds": 9.84,
+          "reference_words": 10,
+          "reference_characters": 106,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 6,
+          "candidate_word_errors": 3,
+          "candidate_character_errors": 5
+        },
+        {
+          "id": "1762",
+          "file": "12429852223284856368.wav",
+          "seconds": 9.66,
+          "reference_words": 10,
+          "reference_characters": 90,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 2,
+          "candidate_word_errors": 0,
+          "candidate_character_errors": 0
+        },
+        {
+          "id": "1755",
+          "file": "12516091698926349527.wav",
+          "seconds": 10.56,
+          "reference_words": 7,
+          "reference_characters": 64,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 3,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 2
+        },
+        {
+          "id": "1887",
+          "file": "12568566513152958931.wav",
+          "seconds": 11.28,
+          "reference_words": 16,
+          "reference_characters": 134,
+          "baseline_word_errors": 4,
+          "baseline_character_errors": 6,
+          "candidate_word_errors": 3,
+          "candidate_character_errors": 5
+        },
+        {
+          "id": "1672",
+          "file": "12600114460722175748.wav",
+          "seconds": 7.62,
+          "reference_words": 12,
+          "reference_characters": 103,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 1,
+          "candidate_word_errors": 0,
+          "candidate_character_errors": 0
+        },
+        {
+          "id": "1741",
+          "file": "12635404722647037864.wav",
+          "seconds": 8.28,
+          "reference_words": 13,
+          "reference_characters": 115,
+          "baseline_word_errors": 4,
+          "baseline_character_errors": 4,
+          "candidate_word_errors": 5,
+          "candidate_character_errors": 6
+        },
+        {
+          "id": "1924",
+          "file": "12643056162585373492.wav",
+          "seconds": 12.0,
+          "reference_words": 19,
+          "reference_characters": 151,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 6,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 6
+        },
+        {
+          "id": "1945",
+          "file": "12669565547360305442.wav",
+          "seconds": 10.02,
+          "reference_words": 9,
+          "reference_characters": 77,
+          "baseline_word_errors": 4,
+          "baseline_character_errors": 6,
+          "candidate_word_errors": 4,
+          "candidate_character_errors": 6
+        },
+        {
+          "id": "1677",
+          "file": "12687301807959427585.wav",
+          "seconds": 8.1,
+          "reference_words": 10,
+          "reference_characters": 89,
+          "baseline_word_errors": 4,
+          "baseline_character_errors": 9,
+          "candidate_word_errors": 4,
+          "candidate_character_errors": 10
+        },
+        {
+          "id": "1662",
+          "file": "12920750113644164494.wav",
+          "seconds": 9.54,
+          "reference_words": 15,
+          "reference_characters": 122,
+          "baseline_word_errors": 10,
+          "baseline_character_errors": 20,
+          "candidate_word_errors": 9,
+          "candidate_character_errors": 18
+        },
+        {
+          "id": "1707",
+          "file": "12989875776006845392.wav",
+          "seconds": 10.32,
+          "reference_words": 13,
+          "reference_characters": 109,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 3,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 1
+        },
+        {
+          "id": "1838",
+          "file": "13068530434547236496.wav",
+          "seconds": 7.92,
+          "reference_words": 13,
+          "reference_characters": 94,
+          "baseline_word_errors": 4,
+          "baseline_character_errors": 5,
+          "candidate_word_errors": 4,
+          "candidate_character_errors": 6
+        },
+        {
+          "id": "1778",
+          "file": "13072815808909233713.wav",
+          "seconds": 9.96,
+          "reference_words": 9,
+          "reference_characters": 94,
+          "baseline_word_errors": 5,
+          "baseline_character_errors": 4,
+          "candidate_word_errors": 6,
+          "candidate_character_errors": 5
+        },
+        {
+          "id": "1679",
+          "file": "13188000615452824850.wav",
+          "seconds": 11.28,
+          "reference_words": 8,
+          "reference_characters": 69,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 6,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 5
+        },
+        {
+          "id": "1891",
+          "file": "13189309144933729540.wav",
+          "seconds": 9.12,
+          "reference_words": 12,
+          "reference_characters": 95,
+          "baseline_word_errors": 8,
+          "baseline_character_errors": 18,
+          "candidate_word_errors": 7,
+          "candidate_character_errors": 15
+        },
+        {
+          "id": "1825",
+          "file": "13308981786333835039.wav",
+          "seconds": 10.2,
+          "reference_words": 17,
+          "reference_characters": 148,
+          "baseline_word_errors": 7,
+          "baseline_character_errors": 10,
+          "candidate_word_errors": 5,
+          "candidate_character_errors": 8
+        },
+        {
+          "id": "1820",
+          "file": "13376038811585548895.wav",
+          "seconds": 12.0,
+          "reference_words": 18,
+          "reference_characters": 138,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 4,
+          "candidate_word_errors": 2,
+          "candidate_character_errors": 2
+        },
+        {
+          "id": "1995",
+          "file": "13648703189667058630.wav",
+          "seconds": 11.28,
+          "reference_words": 20,
+          "reference_characters": 155,
+          "baseline_word_errors": 3,
+          "baseline_character_errors": 3,
+          "candidate_word_errors": 5,
+          "candidate_character_errors": 7
+        },
+        {
+          "id": "1839",
+          "file": "1378109656701220753.wav",
+          "seconds": 9.9,
+          "reference_words": 9,
+          "reference_characters": 68,
+          "baseline_word_errors": 1,
+          "baseline_character_errors": 1,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 1
+        },
+        {
+          "id": "1974",
+          "file": "1390679520823360678.wav",
+          "seconds": 6.54,
+          "reference_words": 12,
+          "reference_characters": 88,
+          "baseline_word_errors": 2,
+          "baseline_character_errors": 4,
+          "candidate_word_errors": 1,
+          "candidate_character_errors": 1
+        },
+        {
+          "id": "1876",
+          "file": "14039059202189408007.wav",
+          "seconds": 10.26,
+          "reference_words": 11,
+          "reference_characters": 94,
+          "baseline_word_errors": 0,
+          "baseline_character_errors": 0,
+          "candidate_word_errors": 0,
+          "candidate_character_errors": 0
+        }
+      ]
+    }
+  },
+  "reproduce": {
+    "command": "python tools/verify_shona_asr.py test /data/sn_zw ./model-assets/embedded_models ./json-20250517.jar",
+    "other_split": "Use dev as the first argument for the 12 development examples.",
+    "requirements": "Python 3.11+, numpy, scipy, onnxruntime==1.22.0, Git with baseline commit, Kotlin JVM compiler 2.1.21 (kotlinc in PATH), JDK 17, org.json:json:20250517. The signed APK contains the acoustic model and both language vocabularies. The candidate prior and its recipe are in this repository.",
+    "verifier_sha256": "ee12ed4f3918ef973ac1c513bc7bd254a1addb806a48484f1b56ef7fa90d0325",
+    "kotlin_runner_sha256": "4f54fccd5df896ffce009234f7c2713fecfc0b287db42b8710d982eec89088ad"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "corpus": "Google FLEURS, ru_ru and sn_zw, matching test-split text IDs",
+  "source": "https://huggingface.co/datasets/google/fleurs/tree/70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+  "selection": {
+    "source_and_reference_sentencepiece_tokens": [
+      8,
+      32
+    ],
+    "excluded_ids": [
+      1748,
+      1941,
+      1674,
+      1679,
+      1987,
+      1945,
+      1739,
+      1894,
+      1908,
+      1926,
+      1796
+    ],
+    "seed": 35821,
+    "development_ids": [
+      "1817",
+      "1762",
+      "1778",
+      "1661",
+      "1853",
+      "1741",
+      "1736",
+      "1684"
+    ],
+    "held_out_ids": [
+      "1949",
+      "1934",
+      "1781",
+      "1792",
+      "1703",
+      "1994",
+      "1811",
+      "1791",
+      "1747",
+      "1677",
+      "1779",
+      "1772",
+      "1728",
+      "1764",
+      "1907",
+      "1668"
+    ]
+  },
+  "decoder": "NLLB-200 distilled 600M INT8, three completed hypotheses",
+  "baseline": "length-normalized decoder log probability",
+  "candidate": "average pairwise sentence chrF beta=1 to the other two hypotheses, unweighted. Choose highest utility if it beats the first hypothesis by more than the threshold, otherwise use the first.",
+  "threshold_search": [
+    0,
+    1,
+    2,
+    4,
+    8,
+    "infinity"
+  ],
+  "threshold_selected_on_dev": 2,
+  "metric": "SacreBLEU 2.5.1 corpus chrF++ beta=2, word_order=2, character_order=6, case sensitive, whitespace removed from character grams",
+  "held_out": {
+    "baseline": 38.99,
+    "candidate": 39.089,
+    "changed": 9,
+    "increased_sentence_score": 4,
+    "decreased_sentence_score": 5,
+    "paired_bootstrap_95pct_delta_points": [
+      -0.73,
+      1.11
+    ],
+    "paired_bootstrap_resamples": 2000
+  },
+  "shipped_consensus": false
+}

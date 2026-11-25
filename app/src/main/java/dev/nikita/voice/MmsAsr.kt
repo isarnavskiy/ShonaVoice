@@ -54,7 +54,7 @@ class MmsAsr(private val modelRoot: File) {
             }
         }
         // Run CTC once across the complete sequence so a word spanning two windows is decoded once.
-        return CtcDecoder.decode(FloatBuffer.wrap(scores), frameCount, metadata, lang, if (lang == "sna") 0.65 else 0.0)
+        return CtcDecoder.decode(FloatBuffer.wrap(scores), frameCount, metadata, lang, if (lang == "sna") 0.4 else 0.0)
     }
 
     private companion object {

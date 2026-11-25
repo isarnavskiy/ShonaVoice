@@ -1,11 +1,22 @@
-The Shona character 1–4-gram counts are derived from unique normalized
-transcripts in the training subset of FLEURS (sn_zw), revision
-70bb2e84b976b7e960aa89f1c648e09c59f894dd. Four-grams seen once were
-omitted. Other language or evaluation transcripts were not used.
+Shona Voice uses a table of Shona character 1–5-gram counts to decode MMS
+frame scores. This adaptation is licensed under CC BY-NC 4.0.
+https://creativecommons.org/licenses/by-nc/4.0/
 
-FLEURS: Few-shot Learning Evaluation of Universal Representations of
-Speech (2022), Alexis Conneau, Min Ma, Simran Khanuja, Yu Zhang,
-Vera Axelrod, Siddharth Dalmia, Jason Riesa, Clara Rivera and Ankur Bapna.
-https://huggingface.co/datasets/google/fleurs
-Data and these adapted counts are licensed under CC BY 4.0.
-https://creativecommons.org/licenses/by/4.0/
+Sources:
+1) Leipzig Corpora Collection, Shona Web subcorpus (Zimbabwe), 2018,
+   sna-zw_web_2018_100K, 100,000 sentences, CC BY-NC 4.0.
+   Persistent identifier: https://hdl.handle.net/11022/0000-0007-CA65-4
+   Catalog: https://wortschatz.uni-leipzig.de/en/download/Shona
+   Archive: https://downloads.wortschatz-leipzig.de/corpora/sna-zw_web_2018_100K.tar.gz
+2) FLEURS: Few-shot Learning Evaluation of Universal Representations of
+   Speech (2022), Alexis Conneau, Min Ma, Simran Khanuja, Yu Zhang,
+   Vera Axelrod, Siddharth Dalmia, Jason Riesa, Clara Rivera and Ankur Bapna.
+   Shona training subset, sn_zw, revision 70bb2e84b976b7e960aa89f1c648e09c59f894dd.
+   https://huggingface.co/datasets/google/fleurs
+   The original FLEURS data are licensed under CC BY 4.0.
+   https://creativecommons.org/licenses/by/4.0/
+
+Changes: normalized and deduplicated each source; counted contiguous
+character sequences including spaces; weighted FLEURS training counts
+by four and pruned infrequent longer sequences. No evaluation transcripts
+were included. Rebuild with tools/build_shona_prior.py.

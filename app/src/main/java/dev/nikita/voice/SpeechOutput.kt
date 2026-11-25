@@ -5,8 +5,10 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.SystemClock
+import android.util.Log
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtException
 import ai.onnxruntime.OrtSession
 import org.json.JSONObject
 import java.io.File
@@ -16,14 +18,6 @@ import java.util.Locale
 import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicLong
 
-private val numericSymbol = Regex("\\p{N}")
-
-internal fun checkShonaVoiceText(text: String) {
-    require(!numericSymbol.containsMatchIn(text)) {
-        "Голос шона может пропустить цифры. Сверьте числа на экране. Для озвучивания запишите их словами."
-    }
-}
-
 /** The caller runs speak on its serial inference worker. stop/close may run on the UI thread. */
 class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val modelRoot: File) {
     private val generation = AtomicLong()
@@ -31,21 +25,39 @@ class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val m
     private val runLock = Any()
     private var activeRun: OrtSession.RunOptions? = null
 
-    fun speak(text: String, lang: String) {
+    fun speak(text: String, lang: String, voiceId: String = "") {
         val token = generation.get()
         checkActive(token)
         require(text.isNotBlank()) { "Нет текста для озвучивания." }
         val prepared = when (lang) {
             "rus" -> RussianSpeechText.normalize(text)
-            "sna" -> text.also { checkShonaVoiceText(it) }
+            "sna" -> ShonaSpeechText.normalize(text)
             else -> error("Неизвестный язык озвучивания.")
         }
-        speakLocal(prepared, lang, token)
+        val voice = if (lang == "sna") ShonaVoice.select(modelRoot, voiceId) else null
+        if (voice == ShonaVoice.EVERYVOICE) {
+            EveryVoiceShona.speak(prepared, voice.directory(modelRoot), { checkActive(token) }, ::stopInference) {
+                session, inputs, output -> infer(session, inputs, output, token)
+            }
+        } else {
+            speakLocal(prepared, voice?.directory(modelRoot) ?: File(modelRoot, "tts/rus"), voice != null, token)
+        }
     }
 
     fun stop() {
         generation.incrementAndGet()
-        synchronized(runLock) { activeRun?.setTerminate(true) }
+        stopInference()
+    }
+
+    private fun stopInference() {
+        synchronized(runLock) {
+            try {
+                activeRun?.setTerminate(true)
+            } catch (e: OrtException) {
+                // The generation check still discards cancelled audio if a provider cannot interrupt a run.
+                Log.w("ShonaVoice", "Could not interrupt ONNX speech inference", e)
+            }
+        }
     }
 
     fun close() {
@@ -59,8 +71,7 @@ class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val m
         }
     }
 
-    private fun speakLocal(text: String, lang: String, token: Long) {
-        val voice = File(modelRoot, "tts/$lang")
+    private fun speakLocal(text: String, voice: File, shona: Boolean, token: Long) {
         val settings = File(voice, "voice.json")
         val graph = File(voice, "model.onnx")
         check(settings.isFile && graph.isFile) { "Повреждён встроенный пакет озвучивания." }
@@ -68,15 +79,27 @@ class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val m
         val vocab = descriptor.getJSONObject("tokens")
         val sampleRate = descriptor.getInt("sample_rate")
         check(sampleRate == 16000 && descriptor.getBoolean("add_blank")) { "Неподходящий формат встроенного голоса." }
-        val normalized = text.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ")
-            .filter { vocab.has(it.toString()) }.trim()
-        require(normalized.isNotEmpty()) { "В переводе нет символов, доступных выбранному голосу." }
 
         val environment = OrtEnvironment.getEnvironment()
         OrtSession.SessionOptions().use { options ->
             options.setIntraOpNumThreads(2)
             options.setMemoryPatternOptimization(false)
             environment.createSession(graph.absolutePath, options).use { session ->
+                if (shona) {
+                    val phrases = ShonaProsody.plan(text) { vocab.has(it.toString()) }
+                    require(phrases.isNotEmpty()) { "В переводе нет символов, доступных выбранному голосу." }
+                    ShonaPlayback.play(sampleRate, { checkActive(token) }, ::stopInference) { emit ->
+                        for (phrase in phrases) {
+                            checkActive(token)
+                            val pcm = synthesize(environment, session, idsFor(phrase.text, vocab), token)
+                            emit(ShonaProsody.withPause(pcm, sampleRate, phrase.pauseAfterMs))
+                        }
+                    }
+                    return
+                }
+                val normalized = text.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ")
+                    .filter { vocab.has(it.toString()) }.trim()
+                require(normalized.isNotEmpty()) { "В переводе нет символов, доступных выбранному голосу." }
                 // Short clauses also bound the VITS decoder's activation buffers.
                 var start = 0
                 while (start < normalized.length) {
@@ -88,13 +111,17 @@ class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val m
                     start = end
                     while (start < normalized.length && normalized[start] == ' ') start++
                     if (clause.isEmpty()) continue
-                    val ids = LongArray(2 * clause.length + 1)
-                    clause.forEachIndexed { index, c -> ids[2 * index + 1] = vocab.getLong(c.toString()) }
-                    val pcm = synthesize(environment, session, ids, token)
+                    val pcm = synthesize(environment, session, idsFor(clause, vocab), token)
                     playSamples(pcm, sampleRate, token)
                 }
             }
         }
+    }
+
+    private fun idsFor(clause: String, vocab: JSONObject): LongArray {
+        val ids = LongArray(2 * clause.length + 1)
+        clause.forEachIndexed { i, c -> ids[2 * i + 1] = vocab.getLong(c.toString()) }
+        return ids
     }
 
     private fun synthesize(env: OrtEnvironment, session: OrtSession, ids: LongArray, token: Long): ShortArray {
@@ -107,25 +134,29 @@ class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val m
             feed["noise_scale"] = scale(0.667f)
             feed["length_scale"] = scale(1f)
             feed["noise_scale_w"] = scale(0.8f)
-            OrtSession.RunOptions().use { run ->
-                synchronized(runLock) {
-                    checkActive(token)
-                    activeRun = run
-                }
-                try {
-                    session.run(feed, setOf("y"), run).use { outputs ->
-                        val samples = (outputs[0] as OnnxTensor).floatBuffer
-                        check(samples.remaining() > 0) { "Синтезатор вернул пустой звук." }
-                        return ShortArray(samples.remaining()) {
-                            (samples.get().coerceIn(-1f, 1f) * 32767f).toInt().toShort()
-                        }
-                    }
-                } finally {
-                    synchronized(runLock) { activeRun = null }
+            infer(session, feed, "y", token).use { outputs ->
+                val samples = (outputs[0] as OnnxTensor).floatBuffer
+                check(samples.remaining() > 0) { "Синтезатор вернул пустой звук." }
+                return ShortArray(samples.remaining()) {
+                    (samples.get().coerceIn(-1f, 1f) * 32767f).toInt().toShort()
                 }
             }
         } finally {
             feed.values.forEach { it.close() }
+        }
+    }
+
+    private fun infer(session: OrtSession, feed: Map<String, OnnxTensor>, output: String, token: Long): OrtSession.Result {
+        OrtSession.RunOptions().use { run ->
+            synchronized(runLock) {
+                checkActive(token)
+                activeRun = run
+            }
+            try {
+                return session.run(feed, setOf(output), run)
+            } finally {
+                synchronized(runLock) { activeRun = null }
+            }
         }
     }
 

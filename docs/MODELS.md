@@ -1,25 +1,28 @@
 # Офлайн-модели Shona Voice
 
-В сборке 1.0.1 текст, запись с микрофона и синтез речи обрабатываются на телефоне. При первом запуске приложение распаковывает из APK 13 файлов моделей и словарей (2,09 ГБ) и проверяет их по SHA-256. Для перевода на шона дополнительно создаётся локальный декодер размером около 476 МБ. Оба голоса входят в APK.
+В сборке 1.0.2 текст, запись с микрофона и синтез речи обрабатываются на телефоне. При первом запуске приложение распаковывает из APK 16 файлов моделей и словарей (2,21 ГБ) и проверяет их по SHA-256. Для перевода на шона дополнительно создаётся локальный декодер размером около 476 МБ. Оба голоса шона и голос русского входят в APK.
 
 | Функция | Модель и особенности | Источники |
 | --- | --- | --- |
 | Перевод между русским и шона | NLLB-200 distilled 600M, графы INT8 и токенизатор SentencePiece. При переводе на шона декодер сравнивает три продолжения, при переводе на русский выбирает одно. До 2000 символов за запрос. | [Meta AI](https://huggingface.co/facebook/nllb-200-distilled-600M) · [ONNX-экспорт Xenova](https://huggingface.co/Xenova/nllb-200-distilled-600M/tree/261c31d1a5732c67cdd16d80e8d6088507c7ccea) |
 | Распознавание русской речи и шона | MMS-1B-all, общие веса INT8 и отдельный языковой адаптер для каждого языка. Запись до 30 секунд приводится к моно, 16 кГц. При распознавании шона дополнительно учитываются частоты сочетаний букв. | [Meta AI](https://huggingface.co/facebook/mms-1b-all) · [ONNX-экспорт OpenVoiceOS](https://huggingface.co/OpenVoiceOS/mms-1b-all-onnx/tree/6007394849e9b73c001ed688be99f5b6ad3f464c) |
-| Озвучивание шона | MMS-TTS-SNA, 16 кГц. Для Android свёрточные слои с постоянными весами квантованы в INT8. Для озвучивания чисел их нужно записать словами. | [Meta AI](https://huggingface.co/facebook/mms-tts-sna) · [ONNX-экспорт Will Wade](https://huggingface.co/willwade/mms-tts-multilingual-models-onnx/tree/4f49fc254f11ddb0e35fbf25b6e48b04463a6779/sna) |
+| Озвучивание шона, MMS | MMS-TTS-SNA, 16 кГц. Для Android свёрточные слои с постоянными весами квантованы в INT8. Числа диктуются по цифрам, фразы отделены паузами. | [Meta AI](https://huggingface.co/facebook/mms-tts-sna) · [ONNX-экспорт Will Wade](https://huggingface.co/willwade/mms-tts-multilingual-models-onnx/tree/4f49fc254f11ddb0e35fbf25b6e48b04463a6779/sna) |
+| Озвучивание шона, EveryVoice | FastSpeech2 и HiFi-GAN, 22,05 кГц. Отдельная модель шона обучена на корпусе OpenBibleTTS, обе её части работают на CPU. | [multilingual-tts](https://huggingface.co/multilingual-tts/EveryVoice-OpenBible-Shona/tree/76dd224de0f4f05034b6f4e561f21dd83dd6c102) · [Воспроизводимый экспорт](../tools/everyvoice/README.md) |
 | Озвучивание русского | MMS-TTS-RUS, 16 кГц. Приложение подготавливает текст и использует исходный ONNX-граф и словарь символов, преобразованный в JSON. | [Meta AI](https://huggingface.co/facebook/mms-tts-rus) · [ONNX-экспорт Will Wade](https://huggingface.co/willwade/mms-tts-multilingual-models-onnx/tree/4f49fc254f11ddb0e35fbf25b6e48b04463a6779/rus) |
 
 ## Лицензии
 
 Веса всех четырёх моделей Meta AI распространяются по **CC BY-NC 4.0**. Лицензия разрешает копирование, распространение и адаптацию для некоммерческих целей. При передаче весов или их производных указывайте авторство, ссылку на лицензию и внесённые изменения, сохраняя предоставленные уведомления. Для коммерческого использования этих весов требуется отдельное разрешение правообладателя. [Условия CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
 
-Таблица частот буквенных сочетаний шона рассчитана по уникальным транскрипциям обучающей выборки FLEURS, язык `sn_zw`. На данные Google FLEURS и производную таблицу действует CC BY 4.0. [Conneau и соавторы, FLEURS, использованная ревизия](https://huggingface.co/datasets/google/fleurs/tree/70bb2e84b976b7e960aa89f1c648e09c59f894dd) · [Условия CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+Адаптация EveryVoice OpenBible Shona и её исходные веса доступны по [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Для распознавания шона таблица сочетаний букв построена на текстах Leipzig Corpora Collection (CC BY-NC 4.0) и обучающих транскрипциях FLEURS (CC BY 4.0). Лицензия адаптированной таблицы — CC BY-NC 4.0. [Исходные данные, авторы и описание обработки](../app/src/main/resources/asr_language/NOTICE.txt)
 
 Лицензия среды вычисления Microsoft ONNX Runtime 1.22.0 — MIT. Для библиотеки токенизации Google SentencePiece 0.2.1 действует Apache License 2.0. [ONNX Runtime 1.22.0](https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.22.0/onnxruntime-android-1.22.0.pom) · [SentencePiece 0.2.1](https://github.com/google/sentencepiece/blob/v0.2.1/LICENSE)
 
 ## Проверка качества
 
-Код перевода и распознавания из сборки проверен на Linux x86-64 с ONNX Runtime 1.22.0. Для распознавания использованы записи носителей из тестовой выборки FLEURS. Длительность в примерах синтеза относится к полученной аудиозаписи.
+Результаты для двух голосов, перевода и распознавания шона в этом выпуске приведены в [проверке 1.0.2](QUALITY-1.0.2.md).
+
+Код перевода и распознавания версии 1.0.1 проверен на Linux x86-64 с ONNX Runtime 1.22.0. Для распознавания использованы записи носителей из тестовой выборки FLEURS. Длительность в примерах синтеза относится к полученной аудиозаписи.
 
 | Проверка | Наблюдение |
 | --- | --- |

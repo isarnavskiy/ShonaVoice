@@ -1,0 +1,15 @@
+EveryVoice OpenBible Shona offline voice
+
+Upstream model: multilingual-tts/EveryVoice-OpenBible-Shona, OpenBibleTTS project, David Guzmán and coauthors.
+Source and original authors' model card: https://huggingface.co/multilingual-tts/EveryVoice-OpenBible-Shona/tree/76dd224de0f4f05034b6f4e561f21dd83dd6c102
+EveryVoice toolkit: https://github.com/EveryVoiceTTS/EveryVoice
+Research paper: https://arxiv.org/abs/2606.09553
+Training data: https://huggingface.co/datasets/davidguzmanr/open-bible-resources
+
+Model weights and the derived acoustic.onnx and vocoder.onnx are offered under Creative Commons Attribution-ShareAlike 4.0 International.
+License: https://creativecommons.org/licenses/by-sa/4.0/
+Legal code: https://creativecommons.org/licenses/by-sa/4.0/legalcode.en
+
+Changes for Shona Voice: exported FastSpeech2 and the HiFi-GAN generator to single-speaker FP32 ONNX (opset 17) for offline inference. Training and discriminator weights were removed. Dynamic single-request attention and duration expansion were expressed using ONNX-compatible tensor operations. The voice uses SPEAKER_00_Shona and 22,050 Hz output. The application token table is derived from the checkpoint's character and punctuation configuration. The upstream model does not endorse this application.
+
+The conversion uses EveryVoice 0.5.0 and torchaudio 2.6.0. Their software licenses and notices are provided next to this file. The model weights have their own CC BY-SA 4.0 license, independent of the software licenses.

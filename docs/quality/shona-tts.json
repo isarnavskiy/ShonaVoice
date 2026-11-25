@@ -1,0 +1,38 @@
+{
+  "scope": "Android Kotlin production capture with a test AudioTrack sink; real ONNX Runtime 1.22.0 CPU on Linux",
+  "device_test": false,
+  "text": "Zita rako ndiani? Ndinokutendai zvikuru.",
+  "native_default": "everyvoice",
+  "available_fallback": "mms-int8",
+  "sample_output": [
+    {
+      "model": "everyvoice",
+      "rate": 22050,
+      "samples": 70544,
+      "channels": 1,
+      "bit_depth": 16,
+      "sha256": "c288759c421e5e8f58bc400e81a4d70dcfeb8596caf0698d5fa75dc08afd2b66"
+    },
+    {
+      "model": "mms-int8",
+      "rate": 16000,
+      "samples": 54232,
+      "channels": 1,
+      "bit_depth": 16,
+      "sha256": "10a3f2a369da2c966a3044c9081cae11abd8837f7c63ad54d512611278646dbe"
+    }
+  ],
+  "host_synthesis": [
+    "everyvoice: 70544 PCM samples, duration 3.20s, inference+sinks 2.05s, RTF 0.640, rms 5631; one released AudioTrack",
+    "mms-int8: 54232 PCM samples, duration 3.39s, inference+sinks 1.74s, RTF 0.513, rms 4692; one released AudioTrack"
+  ],
+  "cancel_tests": [
+    "everyvoice: cancel -> worker exit 19ms, audio released, native inference stopped.",
+    "mms-int8: cancel -> worker exit 33ms, audio released, native inference stopped.",
+    "EveryVoice unsupported L reports the exact letter and MMS alternative."
+  ],
+  "regression": [
+    "Prosody, 90-char cap, adjacent separators, PCM pause lengths, FIFO 40 chunks, producer error, player error, in-flight infer termination, cancellation under backpressure: passed (cancel 40ms).",
+    "Production AudioTrack path: one track, ordered/partial nonblocking writes, PCM short-tail startup, playback-failure cleanup, cancellation during zero writes, model availability/default/validation OK."
+  ]
+}

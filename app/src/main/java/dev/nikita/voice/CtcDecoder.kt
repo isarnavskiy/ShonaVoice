@@ -20,7 +20,7 @@ internal object CtcDecoder {
     }
 
     private class CharacterPrior(language: String) {
-        private val counts: Map<String, Int>
+        private val counts: JSONObject
         private val denominator: Double
         private val scores = HashMap<String, Double>()
 
@@ -28,19 +28,18 @@ internal object CtcDecoder {
             val stream = requireNotNull(CtcDecoder::class.java.getResourceAsStream("/asr_language/$language.json")) {
                 "Отсутствует словарь распознавания $language."
             }
-            val data = stream.bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
-            counts = data.keys().asSequence().associateWith { data.getInt(it) }
-            val singles = counts.filterKeys { it.length == 1 }.values
-            denominator = (singles.sum() + singles.size + 1).toDouble()
+            counts = stream.bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
+            denominator = 1.0 + counts.keys().asSequence().filter { it.length == 1 }
+                .sumOf { counts.getInt(it) + 1 }
         }
 
         fun score(context: String): Double = scores.getOrPut(context) {
-            var probability = (counts.getOrDefault(context.takeLast(1), 0) + 1) / denominator
+            var probability = (counts.optInt(context.takeLast(1), 0) + 1) / denominator
             for (length in 2..context.length) {
                 val gram = context.takeLast(length)
-                val prefixCount = counts.getOrDefault(gram.dropLast(1), 0)
+                val prefixCount = counts.optInt(gram.dropLast(1), 0)
                 if (prefixCount > 0) {
-                    probability = (counts.getOrDefault(gram, 0) + 12 * probability) / (prefixCount + 12)
+                    probability = (counts.optInt(gram, 0) + 12 * probability) / (prefixCount + 12)
                 }
             }
             ln(probability) + 2.0
@@ -77,7 +76,7 @@ internal object CtcDecoder {
                     if (base == impossible) continue
                     val extended = prefix + symbol
                     var score = base + frame[index]
-                    if (prior != null) score += weight * prior.score(("   " + extended).takeLast(4))
+                    if (prior != null) score += weight * prior.score(("    " + extended).takeLast(5))
                     val destination = next.getOrPut(extended) { Ending(impossible, impossible) }
                     destination.character = logAdd(destination.character, score)
                 }

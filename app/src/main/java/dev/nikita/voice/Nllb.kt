@@ -19,25 +19,35 @@ class Nllb(modelRoot: File) {
         require(text.isNotBlank()) { "Нет текста для перевода." }
         require(text.codePointCount(0, text.length) <= 2000) { "Текст превышает 2000 символов." }
         if (text.codePoints().noneMatch { Character.isLetter(it) }) return text.trim()
+        val chunks = splitText(text)
+        require(chunks.isNotEmpty()) { "Текст не содержит слов для перевода." }
+        // Prepare fallback fragments only for sentences containing a link, code or other exact literal.
+        // Usually the whole sentence passes validation and keeps its surrounding grammatical context.
+        val plans = chunks.associate { it.text to ShonaTranslationText.parts(it.text) }
+        val fragments = plans.values.flatten().filter { it.translate }.associate { it.text to splitPlain(it.text) }
+        val jobs = linkedMapOf<String, IntArray>()
+        for (chunk in chunks) {
+            val parts = plans.getValue(chunk.text)
+            if (parts.isEmpty() || (parts.any { it.translate } && chunk.pieces.size <= SOURCE_BUDGET)) {
+                jobs[chunk.text] = chunk.pieces
+            }
+            parts.filter { it.translate }.forEach { part ->
+                fragments.getValue(part.text).forEach { jobs[it.text] = it.pieces }
+            }
+        }
+        if (jobs.keys.none { word -> word.any { it.isLetter() } }) return text.trim()
         val config = JSONObject(File(directory, "config.json").readText())
         // The paired FLEURS check favored beam search into Shona and greedy decoding into Russian.
         val preferBeam = dst == "sna"
         val decoderFile = if (preferBeam) BeamDecoder.model(directory) else File(directory, "decoder.onnx")
-        val chunks = splitText(text)
-        require(chunks.isNotEmpty()) { "Текст не содержит слов для перевода." }
         val encoded = linkedMapOf<String, Encoded>()
         val translations = mutableMapOf<String, String>()
         try {
-            // Keep only one large model resident at a time. All encoder outputs together
-            // are bounded by the 2000-character limit, including on multi-paragraph input.
             session(File(directory, "encoder.onnx")) { encoder ->
-                for (chunk in chunks.distinctBy { it.text }) {
+                for ((source, pieces) in jobs) {
                     checkRunning()
-                    if (chunk.text.codePoints().anyMatch { Character.isLetter(it) }) {
-                        encoded[chunk.text] = encode(encoder, chunk.pieces, config.getLong(src))
-                    } else {
-                        translations[chunk.text] = chunk.text
-                    }
+                    if (source.any { it.isLetter() }) encoded[source] = encode(encoder, pieces, config.getLong(src))
+                    else translations[source] = source
                 }
             }
             val pieceCount = config.getLong("piece_count")
@@ -49,12 +59,34 @@ class Nllb(modelRoot: File) {
                     options.setCPUArenaAllocator(false)
                     options.setMemoryPatternOptimization(false)
                     environment.createSession(graph, options).use { selector ->
-                        for ((source, state) in encoded) {
-                            val generated = generate(decoder, selector, state, config.getLong(dst), pieceCount, preferBeam)
-                            val pieces = generated.filter { it in 4L..pieceCount }.map { (it - 1L).toInt() }.toIntArray()
-                            val translated = NativeSentencePiece.decode(tokenizer, pieces).trim()
-                            check(translated.isNotEmpty()) { "Модель вернула пустой перевод." }
-                            translations[source] = translated
+                        fun predict(source: String): String = translations.getOrPut(source) {
+                            val alternatives = generate(decoder, selector, encoded.getValue(source), config.getLong(dst), pieceCount, preferBeam)
+                            val numbers = ShonaTranslationText.numbers(source)
+                            var first = ""
+                            for (candidate in alternatives) {
+                                val pieces = candidate.filter { it in 4L..pieceCount }.map { (it - 1L).toInt() }.toIntArray()
+                                val decoded = NativeSentencePiece.decode(tokenizer, pieces).trim()
+                                if (decoded.isEmpty()) continue
+                                if (first.isEmpty()) first = decoded
+                                if (ShonaTranslationText.preserves(source, decoded) && ShonaTranslationText.numbers(decoded) == numbers) {
+                                    return@getOrPut decoded
+                                }
+                            }
+                            check(first.isNotEmpty()) { "Модель вернула пустой перевод." }
+                            first
+                        }
+                        for ((source, parts) in plans) {
+                            checkRunning()
+                            if (parts.isEmpty()) { predict(source); continue }
+                            if (parts.none { it.translate }) { translations[source] = source; continue }
+                            val whole = if (source in encoded) predict(source) else null
+                            if (whole != null && ShonaTranslationText.preserves(source, whole)) continue
+                            translations[source] = parts.joinToString("") { part ->
+                                if (!part.translate) part.text else {
+                                    val partial = fragments.getValue(part.text).joinToString(" ") { predict(it.text) }
+                                    ShonaTranslationText.inlineTranslation(part.text, partial)
+                                }
+                            }
                         }
                     }
                 }
@@ -70,6 +102,8 @@ class Nllb(modelRoot: File) {
 
     private data class Chunk(val paragraph: Int, val text: String, val pieces: IntArray)
 
+    private fun splitPlain(text: String): List<Chunk> = mutableListOf<Chunk>().also { splitSentence(text, 0, it) }
+
     private fun splitText(source: String): List<Chunk> {
         val chunks = mutableListOf<Chunk>()
         val seen = mutableMapOf<String, List<Chunk>>()
@@ -78,7 +112,8 @@ class Nllb(modelRoot: File) {
                 val sentence = part.trim()
                 if (sentence.isEmpty()) return
                 val segments = seen.getOrPut(sentence) {
-                    mutableListOf<Chunk>().also { splitSentence(sentence, index, it) }
+                    if (ShonaTranslationText.parts(sentence).isEmpty()) splitPlain(sentence)
+                    else listOf(Chunk(index, sentence, NativeSentencePiece.encode(tokenizer, sentence)))
                 }
                 chunks.addAll(segments.map { it.copy(paragraph = index) })
             }
@@ -149,7 +184,7 @@ class Nllb(modelRoot: File) {
 
     private fun generate(
         decoder: OrtSession, selector: OrtSession, state: Encoded, language: Long, pieceCount: Long, preferBeam: Boolean
-    ): List<Long> {
+    ): List<List<Long>> {
         val past = decoder.inputNames.filter { it.startsWith(PAST) }.associateWith { "present." + it.removePrefix(PAST) }
         val self = past.filterKeys { ".decoder." in it }
         val cross = past.filterKeys { ".encoder." in it }
@@ -171,7 +206,7 @@ class Nllb(modelRoot: File) {
         var active = listOf(Hypothesis(emptyList(), 0.0))
         val limit = (3 * state.mask.info.shape[1].toInt() + 32).coerceIn(64, 512)
         try {
-            repeat(limit) {
+            decode@ for (step in 0 until limit) {
                 checkRunning()
                 val initial = first
                 val cached = initial != null
@@ -215,9 +250,9 @@ class Nllb(modelRoot: File) {
                 if (!hasScores) {
                     val token = result.tensor("next_token").longBuffer.get(0)
                     val path = active.single()
-                    if (token == EOS) return path.tokens
+                    if (token == EOS) return listOf(path.tokens)
                     active = listOf(Hypothesis(path.tokens + token, 0.0))
-                    return@repeat
+                    continue@decode
                 }
                 val tokens = result.tensor("beam_tokens").longBuffer
                 val scores = result.tensor("beam_logprobs").floatBuffer
@@ -245,10 +280,10 @@ class Nllb(modelRoot: File) {
                 val best = active.firstOrNull()
                 val done = completed.size == width && best != null &&
                     completed.last().normalized >= best.score / best.tokens.size
-                if (best == null || done) return completed.firstOrNull()?.tokens ?: error("Модель вернула пустой перевод.")
+                if (best == null || done) break@decode
             }
-            return completed.firstOrNull()?.tokens
-                ?: error("Модель не завершила перевод предложения. Разделите это предложение на части.")
+            check(completed.isNotEmpty()) { "Модель не завершила перевод предложения. Разделите это предложение на части." }
+            return completed.map { it.tokens }
         } finally {
             if (previous !== first) previous?.close()
             first?.close()

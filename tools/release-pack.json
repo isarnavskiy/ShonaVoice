@@ -65,6 +65,21 @@
       "path": "tts/rus/voice.json",
       "bytes": 1422,
       "sha256": "3fbbe1101c27f9bfa203e41c607c298cdf7f857e4950e951a6b2306a9ec4c895"
+    },
+    {
+      "path": "tts/sna-everyvoice/acoustic.onnx",
+      "bytes": 70842432,
+      "sha256": "40e55f8b3d85b0a2a16ea804efd58ecf22778938a990791b5ca28969855eaad1"
+    },
+    {
+      "path": "tts/sna-everyvoice/vocoder.onnx",
+      "bytes": 55743663,
+      "sha256": "4c398991d4d4cee2c09b7de6870d40044d8992bc1bac010722cd3aa6846fa13f"
+    },
+    {
+      "path": "tts/sna-everyvoice/voice.json",
+      "bytes": 1186,
+      "sha256": "4887b1c08741242d19e1d5ef31fce4d09a3d7bb5ba69cd63eaa9c49c2d939119"
     }
   ]
 }

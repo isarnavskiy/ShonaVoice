@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.nio.ByteBuffer
@@ -22,10 +23,13 @@ import kotlin.math.roundToInt
 internal class DeviceBridge(private val activity: MainActivity) {
     // WebView calls these narrow entry points on its bridge thread.
     @JavascriptInterface fun status(): String = activity.statusJson()
+    @JavascriptInterface fun hasShonaNumberGroups(text: String): Boolean = ShonaSpeechText.hasNumberGroups(text)
     @JavascriptInterface fun translate(id: Int, text: String, from: String, to: String) =
         activity.runOnUiThread { activity.translate(id, text, from, to) }
     @JavascriptInterface fun speak(id: Int, text: String, lang: String) =
         activity.runOnUiThread { activity.speak(id, text, lang) }
+    @JavascriptInterface fun speakWithVoice(id: Int, text: String, lang: String, voiceId: String) =
+        activity.runOnUiThread { activity.speak(id, text, lang, voiceId) }
     @JavascriptInterface fun record(id: Int, lang: String) =
         activity.runOnUiThread { activity.record(id, lang) }
     @JavascriptInterface fun finish(id: Int) = activity.runOnUiThread { activity.finishRecording(id) }
@@ -86,9 +90,14 @@ class MainActivity : Activity() {
     private fun root(): File? = getExternalFilesDir(null)?.let { File(it, "models") }
     private fun issue(dir: File?) = if (dir != null) modelPackIssue(dir) else "Хранилище моделей недоступно."
     internal fun statusJson(): String {
-        val problem = issue(root())
+        val dir = root()
+        val problem = issue(dir)
+        val voices = if (problem == null) ShonaVoice.available(dir) else emptyList()
+        val options = JSONArray()
+        for (voice in voices) options.put(JSONObject().put("id", voice.id).put("name", voice.label))
         return JSONObject().put("translation", problem == null).put("asr", problem == null)
-            .put("shonaTts", problem == null).put("issue", problem ?: "").toString()
+            .put("shonaTts", voices.isNotEmpty()).put("shonaVoices", options)
+            .put("defaultShonaVoice", voices.firstOrNull()?.id ?: "").put("issue", problem ?: "").toString()
     }
     private fun models(): File {
         val path = root()
@@ -159,7 +168,7 @@ class MainActivity : Activity() {
         }
     }
 
-    internal fun speak(id: Int, text: String, lang: String) {
+    internal fun speak(id: Int, text: String, lang: String, voiceId: String = "") {
         val op = newOperation(id) ?: return
         val path = root()
         if (path == null) { end(op, "Хранилище приложения недоступно."); return }
@@ -167,7 +176,7 @@ class MainActivity : Activity() {
         op.audio = engine
         work(op, "tts") {
             require(text.isNotBlank() && text.length <= 12000) { "Не удалось озвучить текст такой длины." }
-            engine.speak(text, language(lang))
+            engine.speak(text, language(lang), voiceId)
             ""
         }
     }

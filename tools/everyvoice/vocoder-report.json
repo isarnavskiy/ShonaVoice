@@ -1,0 +1,44 @@
+{
+  "source_revision": "76dd224de0f4f05034b6f4e561f21dd83dd6c102",
+  "source_checkpoint_sha256": "48e7055d3b51abf5b4b85eb6bfe1dbbed121c48eb2e82388a7dabd037b677a80",
+  "step": 100000,
+  "size": 55743663,
+  "sha256": "4c398991d4d4cee2c09b7de6870d40044d8992bc1bac010722cd3aa6846fa13f",
+  "tests": [
+    {
+      "frames": 5,
+      "samples": 1280,
+      "max_diff": 1.341104507446289e-06,
+      "rms_error": 2.9228871767372766e-07
+    },
+    {
+      "frames": 17,
+      "samples": 4352,
+      "max_diff": 2.60770320892334e-06,
+      "rms_error": 4.2694293256317906e-07
+    },
+    {
+      "frames": 40,
+      "samples": 10240,
+      "max_diff": 6.3478946685791016e-06,
+      "rms_error": 4.60993192064052e-07
+    },
+    {
+      "frames": 121,
+      "samples": 30976,
+      "max_diff": 8.89599323272705e-06,
+      "rms_error": 4.309027872295701e-07
+    },
+    {
+      "frames": 227,
+      "samples": 58112,
+      "max_diff": 1.817941665649414e-05,
+      "rms_error": 5.643104827868228e-07
+    }
+  ],
+  "sample_rate": 22050,
+  "input": "mel [1,80,frames] float32",
+  "output": "audio [1,1,frames*256] float32",
+  "opset": 17,
+  "onnxruntime": "1.22.0"
+}

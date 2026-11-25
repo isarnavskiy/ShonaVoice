@@ -219,6 +219,10 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
 .model-card[data-ready="true"] .status-dot { background: var(--status-ready); }
 .model-card strong { display: block; font-size: .875rem; margin-bottom: 4px; }
 .checkline { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 9px 1px; cursor: pointer; }
+.voice-choice { margin: 11px 0; }
+.voice-choice label { display: block; margin-bottom: 5px; font-weight: 620; font-size: .85rem; }
+.voice-choice select { background: var(--surface); color: var(--text); width: 100%; padding: 8px; border: 1px solid var(--divider); border-radius: 9px; min-height: 42px; }
+.voice-choice .voice-sample-text { font-size: .8rem; color: var(--muted); margin: 7px 0 0; }
 .checkline + .checkline { border-top: 1px solid var(--divider); }
 .checkline span { display: grid; gap: 3px; }
 .checkline strong { font-size: .85rem; font-weight: 620; }
@@ -335,10 +339,17 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     <section class="settings-group" aria-labelledby="voiceSettings">
       <h3 id="voiceSettings">Микрофон и озвучивание</h3>
       <p id="recInfo"></p>
+      <div class="voice-choice" id="shonaVoiceChoice" hidden>
+        <label for="shonaVoice">Модель озвучивания на шона</label>
+        <select id="shonaVoice"></select>
+        <p class="voice-sample-text">Пример звучания · <span id="shonaSample" lang="sn">Mhoro! Makadii?</span></p>
+        <button type="button" class="linkbtn" id="previewShona">Прослушать пример</button>
+        <p id="previewNotice" role="status" hidden></p>
+      </div>
       <label class="checkline"><span><strong>Проверять текст после записи</strong><small>Можно исправить распознанные слова перед переводом.</small></span><input type="checkbox" id="reviewText" checked></label>
       <label class="checkline"><span><strong>Читать перевод вслух после записи</strong><small>Для введённого текста есть кнопка озвучивания.</small></span><input type="checkbox" id="autoSpeak" checked></label>
     </section>
-    <details class="models-credit"><summary>О приложении и моделях</summary><p>Для перевода Shona Voice использует NLLB-200 от Meta AI. За распознавание и озвучивание отвечают модели MMS от Meta AI. Модели распространяются по лицензии Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0).</p><p>В приложении используются ONNX Runtime и SentencePiece. Сведения об исходных моделях, авторах и изменениях включены в APK.</p></details>
+    <details class="models-credit"><summary>О приложении и моделях</summary><p>За перевод отвечает NLLB-200, за распознавание речи и один из вариантов озвучивания — модели MMS. Meta AI распространяет эти модели по лицензии CC BY-NC 4.0. Дополнительный голос шона EveryVoice OpenBible от multilingual-tts распространяется по лицензии CC BY-SA 4.0.</p><p>В приложении используются ONNX Runtime и SentencePiece. Сведения об исходных моделях, авторах и изменениях включены в APK.</p></details>
     <button type="button" id="feedback" class="linkbtn feedback"><i data-i="comment"></i>Обратная связь<i data-i="east"></i></button>
   </section>
   <section id="feedbackPane" hidden>
@@ -726,6 +737,8 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
   function speechStop() {
     soundToken++;
     $('listen').dataset.active = '';
+    $('previewShona').dataset.active = '';
+    $('previewShona').textContent = 'Прослушать пример';
     if (playing) {
       playing.pause();
       playing = null;
@@ -995,15 +1008,21 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
       $('listen').dataset.active = '';
       return;
     }
-    if (dest() === 'sn' && /[0-9\xB2\xB3\xB9\xBC-\xBE\u0660-\u0669\u06F0-\u06F9\u07C0-\u07C9\u0966-\u096F\u09E6-\u09EF\u09F4-\u09F9\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0B72-\u0B77\u0BE6-\u0BF2\u0C66-\u0C6F\u0C78-\u0C7E\u0CE6-\u0CEF\u0D58-\u0D5E\u0D66-\u0D78\u0DE6-\u0DEF\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F33\u1040-\u1049\u1090-\u1099\u1369-\u137C\u16EE-\u16F0\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1946-\u194F\u19D0-\u19DA\u1A80-\u1A89\u1A90-\u1A99\u1B50-\u1B59\u1BB0-\u1BB9\u1C40-\u1C49\u1C50-\u1C59\u2070\u2074-\u2079\u2080-\u2089\u2150-\u2182\u2185-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2CFD\u3007\u3021-\u3029\u3038-\u303A\u3192-\u3195\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\uA620-\uA629\uA6E6-\uA6EF\uA830-\uA835\uA8D0-\uA8D9\uA900-\uA909\uA9D0-\uA9D9\uA9F0-\uA9F9\uAA50-\uAA59\uABF0-\uABF9\uFF10-\uFF19\u{10107}-\u{10133}\u{10140}-\u{10178}\u{1018A}\u{1018B}\u{102E1}-\u{102FB}\u{10320}-\u{10323}\u{10341}\u{1034A}\u{103D1}-\u{103D5}\u{104A0}-\u{104A9}\u{10858}-\u{1085F}\u{10879}-\u{1087F}\u{108A7}-\u{108AF}\u{108FB}-\u{108FF}\u{10916}-\u{1091B}\u{109BC}\u{109BD}\u{109C0}-\u{109CF}\u{109D2}-\u{109FF}\u{10A40}-\u{10A48}\u{10A7D}\u{10A7E}\u{10A9D}-\u{10A9F}\u{10AEB}-\u{10AEF}\u{10B58}-\u{10B5F}\u{10B78}-\u{10B7F}\u{10BA9}-\u{10BAF}\u{10CFA}-\u{10CFF}\u{10D30}-\u{10D39}\u{10D40}-\u{10D49}\u{10E60}-\u{10E7E}\u{10F1D}-\u{10F26}\u{10F51}-\u{10F54}\u{10FC5}-\u{10FCB}\u{11052}-\u{1106F}\u{110F0}-\u{110F9}\u{11136}-\u{1113F}\u{111D0}-\u{111D9}\u{111E1}-\u{111F4}\u{112F0}-\u{112F9}\u{11450}-\u{11459}\u{114D0}-\u{114D9}\u{11650}-\u{11659}\u{116C0}-\u{116C9}\u{116D0}-\u{116E3}\u{11730}-\u{1173B}\u{118E0}-\u{118F2}\u{11950}-\u{11959}\u{11BF0}-\u{11BF9}\u{11C50}-\u{11C6C}\u{11D50}-\u{11D59}\u{11DA0}-\u{11DA9}\u{11F50}-\u{11F59}\u{11FC0}-\u{11FD4}\u{12400}-\u{1246E}\u{16130}-\u{16139}\u{16A60}-\u{16A69}\u{16AC0}-\u{16AC9}\u{16B50}-\u{16B59}\u{16B5B}-\u{16B61}\u{16D70}-\u{16D79}\u{16E80}-\u{16E96}\u{1CCF0}-\u{1CCF9}\u{1D2C0}-\u{1D2D3}\u{1D2E0}-\u{1D2F3}\u{1D360}-\u{1D378}\u{1D7CE}-\u{1D7FF}\u{1E140}-\u{1E149}\u{1E2F0}-\u{1E2F9}\u{1E4F0}-\u{1E4F9}\u{1E5F1}-\u{1E5FA}\u{1E8C7}-\u{1E8CF}\u{1E950}-\u{1E959}\u{1EC71}-\u{1ECAB}\u{1ECAD}-\u{1ECAF}\u{1ECB1}-\u{1ECB4}\u{1ED01}-\u{1ED2D}\u{1ED2F}-\u{1ED3D}\u{1F100}-\u{1F10C}\u{1FBF0}-\u{1FBF9}]/u.test(result)) {
-      message('Голос шона может пропустить цифры. Сверьте числа на экране. Для озвучивания запишите их словами.');
+    const hasShonaNumber = dest() === 'sn' && /[0-9\xB2\xB3\xB9\xBC-\xBE\u0660-\u0669\u06F0-\u06F9\u07C0-\u07C9\u0966-\u096F\u09E6-\u09EF\u09F4-\u09F9\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0B72-\u0B77\u0BE6-\u0BF2\u0C66-\u0C6F\u0C78-\u0C7E\u0CE6-\u0CEF\u0D58-\u0D5E\u0D66-\u0D78\u0DE6-\u0DEF\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F33\u1040-\u1049\u1090-\u1099\u1369-\u137C\u16EE-\u16F0\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1946-\u194F\u19D0-\u19DA\u1A80-\u1A89\u1A90-\u1A99\u1B50-\u1B59\u1BB0-\u1BB9\u1C40-\u1C49\u1C50-\u1C59\u2070\u2074-\u2079\u2080-\u2089\u2150-\u2182\u2185-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2CFD\u3007\u3021-\u3029\u3038-\u303A\u3192-\u3195\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\uA620-\uA629\uA6E6-\uA6EF\uA830-\uA835\uA8D0-\uA8D9\uA900-\uA909\uA9D0-\uA9D9\uA9F0-\uA9F9\uAA50-\uAA59\uABF0-\uABF9\uFF10-\uFF19\u{10107}-\u{10133}\u{10140}-\u{10178}\u{1018A}\u{1018B}\u{102E1}-\u{102FB}\u{10320}-\u{10323}\u{10341}\u{1034A}\u{103D1}-\u{103D5}\u{104A0}-\u{104A9}\u{10858}-\u{1085F}\u{10879}-\u{1087F}\u{108A7}-\u{108AF}\u{108FB}-\u{108FF}\u{10916}-\u{1091B}\u{109BC}\u{109BD}\u{109C0}-\u{109CF}\u{109D2}-\u{109FF}\u{10A40}-\u{10A48}\u{10A7D}\u{10A7E}\u{10A9D}-\u{10A9F}\u{10AEB}-\u{10AEF}\u{10B58}-\u{10B5F}\u{10B78}-\u{10B7F}\u{10BA9}-\u{10BAF}\u{10CFA}-\u{10CFF}\u{10D30}-\u{10D39}\u{10D40}-\u{10D49}\u{10E60}-\u{10E7E}\u{10F1D}-\u{10F26}\u{10F51}-\u{10F54}\u{10FC5}-\u{10FCB}\u{11052}-\u{1106F}\u{110F0}-\u{110F9}\u{11136}-\u{1113F}\u{111D0}-\u{111D9}\u{111E1}-\u{111F4}\u{112F0}-\u{112F9}\u{11450}-\u{11459}\u{114D0}-\u{114D9}\u{11650}-\u{11659}\u{116C0}-\u{116C9}\u{116D0}-\u{116E3}\u{11730}-\u{1173B}\u{118E0}-\u{118F2}\u{11950}-\u{11959}\u{11BF0}-\u{11BF9}\u{11C50}-\u{11C6C}\u{11D50}-\u{11D59}\u{11DA0}-\u{11DA9}\u{11F50}-\u{11F59}\u{11FC0}-\u{11FD4}\u{12400}-\u{1246E}\u{16130}-\u{16139}\u{16A60}-\u{16A69}\u{16AC0}-\u{16AC9}\u{16B50}-\u{16B59}\u{16B5B}-\u{16B61}\u{16D70}-\u{16D79}\u{16E80}-\u{16E96}\u{1CCF0}-\u{1CCF9}\u{1D2C0}-\u{1D2D3}\u{1D2E0}-\u{1D2F3}\u{1D360}-\u{1D378}\u{1D7CE}-\u{1D7FF}\u{1E140}-\u{1E149}\u{1E2F0}-\u{1E2F9}\u{1E4F0}-\u{1E4F9}\u{1E5F1}-\u{1E5FA}\u{1E8C7}-\u{1E8CF}\u{1E950}-\u{1E959}\u{1EC71}-\u{1ECAB}\u{1ECAD}-\u{1ECAF}\u{1ECB1}-\u{1ECB4}\u{1ED01}-\u{1ED2D}\u{1ED2F}-\u{1ED3D}\u{1F100}-\u{1F10C}\u{1FBF0}-\u{1FBF9}]/u.test(result);
+    if (hasShonaNumber && !device) {
+      message('Для озвучивания цифр на шона откройте перевод в приложении Android.');
       return;
     }
     speechStop();
     const token = soundToken,
       lang = dest(),
       text = result;
-    message();
+    if (hasShonaNumber) {
+      const mismatch = numberSequence($('input').value) !== numberSequence(text);
+      const grouped = device.hasShonaNumberGroups(text);
+      const guide = grouped ? 'Время и даты читаются группами цифр.' : 'На шона число прозвучит по одной цифре.';
+      message((mismatch ? 'Числа в исходном тексте и переводе различаются. ' : '') + guide + ' Сверяйте значения с текстом.');
+    } else message();
     $('listen').innerHTML = icon('stop') + '<span class="sr">Остановить озвучивание</span>';
     $('listen').title = 'Остановить озвучивание';
     $('listen').dataset.active = '1';
@@ -1015,7 +1034,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     };
     try {
       if (device) {
-        await device.speak(text, lang);
+        await device.speak(text, lang, lang === 'sn' ? $('shonaVoice').value : '');
         done();
         return;
       }
@@ -1167,6 +1186,9 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
   $('feedback').onclick = () => openModal(true);
   $('settings').onclick = () => openModal(false);
   $('close').onclick = () => $('dialog').close();
+  $('dialog').addEventListener('close', () => {
+    if (!$('dialog').open && $('previewShona').dataset.active === '1') speechStop();
+  });
   $('dialog').onclick = e => {
     if (e.target === $('dialog')) {
       const r = $('dialog').getBoundingClientRect();
@@ -1210,7 +1232,51 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
       $('noteStatus').textContent = e.message;
     }
   };
+  function renderShonaVoices() {
+    const select = $('shonaVoice');
+    select.replaceChildren();
+    const voices = device && Array.isArray(cap.shonaVoices) ? cap.shonaVoices : [];
+    for (const entry of voices) {
+      if (entry && typeof entry.id === 'string' && entry.id && typeof entry.name === 'string' && entry.name) {
+        select.appendChild(new Option(entry.name, entry.id));
+      }
+    }
+    $('shonaVoiceChoice').hidden = select.options.length < 2;
+    if (select.options.length) {
+      const choices = Array.from(select.options, option => option.value);
+      const previous = loadPreference('shonaVoice', '');
+      select.value = choices.includes(previous) ? previous :
+        choices.includes(cap.defaultShonaVoice) ? cap.defaultShonaVoice : choices[0];
+    }
+    $('previewNotice').hidden = true;
+  }
+  $('shonaVoice').onchange = () => {
+    speechStop();
+    store('shonaVoice', $('shonaVoice').value);
+    $('previewNotice').hidden = true;
+  };
+  $('previewShona').onclick = async () => {
+    const button = $('previewShona');
+    const wasPlaying = button.dataset.active === '1';
+    speechStop();
+    $('previewNotice').hidden = true;
+    if (wasPlaying || $('shonaVoiceChoice').hidden) return;
+    const token = soundToken;
+    button.dataset.active = '1';
+    button.textContent = 'Остановить пример';
+    try {
+      await device.speak($('shonaSample').textContent, 'sn', $('shonaVoice').value);
+    } catch (error) {
+      if (token === soundToken) {
+        $('previewNotice').textContent = error.message;
+        $('previewNotice').hidden = false;
+      }
+    } finally {
+      if (token === soundToken) speechStop();
+    }
+  };
   function renderModelStatus() {
+    renderShonaVoices();
     const ready = cap.translation === true;
     $('modelStatus').dataset.ready = String(ready);
     $('modelTitle').textContent = ready ? 'Можно переводить' : 'Перевод ещё не настроен';

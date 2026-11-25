@@ -1,9 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="264" height="48" viewBox="0 0 264 48" role="img" aria-label="Скачать APK, 1,60 ГБ">
+<svg xmlns="http://www.w3.org/2000/svg" width="264" height="48" viewBox="0 0 264 48" role="img" aria-label="Скачать APK, 1,72 ГБ">
   <rect x=".5" y=".5" width="263" height="47" rx="12" fill="#F5B329" stroke="#E0A027"/>
   <g stroke="#123B20" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <path d="M25 13v14m-5-5 5 5 5-5m-13 7v4h16v-4"/>
   </g>
   <text x="46" y="30" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#123B20">Скачать APK</text>
   <path d="M164 14v20" stroke="#B37F1A"/>
-  <text x="180" y="30" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#213F24">1,60 ГБ</text>
+  <text x="180" y="30" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#213F24">1,72 ГБ</text>
 </svg>

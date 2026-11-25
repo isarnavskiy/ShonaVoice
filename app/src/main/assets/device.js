@@ -135,8 +135,15 @@ if (!Promise.prototype.finally) {
     translate(text, from, to, signal) {
       return request(id => native.translate(id, text, from, to), null, signal).promise;
     },
-    speak(text, lang) {
-      const job = request(id => native.speak(id, text, lang));
+    hasShonaNumberGroups(text) {
+      return typeof native.hasShonaNumberGroups === 'function' && native.hasShonaNumberGroups(text);
+    },
+    speak(text, lang, voiceId) {
+      const job = request(id => {
+        if (lang === 'sn' && voiceId && typeof native.speakWithVoice === 'function') {
+          native.speakWithVoice(id, text, lang, voiceId);
+        } else native.speak(id, text, lang);
+      });
       speech = job;
       return job.promise.finally(() => {
         if (speech === job) speech = null;
