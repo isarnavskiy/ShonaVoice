@@ -8,8 +8,10 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RELEASE_SIZE = 1_715_381_351
-RELEASE_SHA256 = "d61d415821620e9fba204cb668bd44e8d30390911a58040c3962b9bb17e64bdb"
+RELEASE_SIZES = {
+    "123c7722ee8cfbc1adf0775ef6e46afcc8207a3d1edc5b26c36be48b61ee3fd4": 1_715_381_351,
+    "d61d415821620e9fba204cb668bd44e8d30390911a58040c3962b9bb17e64bdb": 1_715_381_351,
+}
 PREFIX = "assets/embedded_models/"
 BUF_SIZE = 1024 * 1024
 
@@ -27,12 +29,12 @@ def stream_hash(stream, target=None):
 
 def unpack(apk_path, output):
     size = apk_path.stat().st_size
-    if size != RELEASE_SIZE:
-        raise ValueError("Unexpected APK size. Use the signed ShonaVoice-Offline.apk from v1.0.2.")
+    if size not in RELEASE_SIZES.values():
+        raise ValueError("Unexpected APK size. Use the signed ShonaVoice-Offline.apk from v1.0.2 or v1.0.3.")
     print("Checking release APK SHA-256...", flush=True)
     with apk_path.open("rb") as apk_file:
-        if stream_hash(apk_file)[1] != RELEASE_SHA256:
-            raise ValueError("APK SHA-256 mismatch. Use the original signed v1.0.2 release.")
+        if RELEASE_SIZES.get(stream_hash(apk_file)[1]) != size:
+            raise ValueError("APK SHA-256 mismatch. Use the original signed v1.0.2 or v1.0.3 release.")
         apk_file.seek(0)
         with zipfile.ZipFile(apk_file) as archive:
             index = (ROOT / "tools/release-pack.json").read_bytes()
@@ -80,7 +82,7 @@ def unpack(apk_path, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--apk", type=Path, required=True, help="Path to a signed v1.0.2 release APK")
+    parser.add_argument("--apk", type=Path, required=True, help="Path to a signed v1.0.2 or v1.0.3 release APK")
     args = parser.parse_args()
     try:
         count = unpack(args.apk, ROOT / "model-assets/embedded_models")

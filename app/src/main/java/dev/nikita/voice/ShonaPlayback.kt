@@ -58,6 +58,16 @@ internal object ShonaPlayback {
         }
     }
 
+    internal fun bufferSizeBytes(sampleRate: Int, minimumBytes: Int): Int {
+        check(sampleRate > 0 && minimumBytes > 0) { "Аудиоустройство не поддерживает частоту голоса." }
+        // Mono PCM16 uses two bytes per frame. Android requires a whole number of frames.
+        val quarterSecondFrames = (sampleRate.toLong() + 3) / 4
+        val minimumFrames = (minimumBytes.toLong() + 1) / 2
+        val bytes = maxOf(quarterSecondFrames, minimumFrames) * 2
+        check(bytes <= Int.MAX_VALUE) { "Слишком большой аудиобуфер." }
+        return bytes.toInt()
+    }
+
     private fun render(sampleRate: Int, active: () -> Unit, next: () -> ShortArray?) {
         var samples = next() ?: return
         val mask = AudioFormat.CHANNEL_OUT_MONO
@@ -66,9 +76,8 @@ internal object ShonaPlayback {
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
         val format = AudioFormat.Builder().setSampleRate(sampleRate).setEncoding(encoding).setChannelMask(mask).build()
         val minimum = AudioTrack.getMinBufferSize(sampleRate, mask, encoding)
-        check(minimum > 0) { "Аудиоустройство не поддерживает частоту голоса." }
         val track = AudioTrack.Builder().setAudioAttributes(attributes).setAudioFormat(format)
-            .setTransferMode(AudioTrack.MODE_STREAM).setBufferSizeInBytes(maxOf(minimum, sampleRate / 2)).build()
+            .setTransferMode(AudioTrack.MODE_STREAM).setBufferSizeInBytes(bufferSizeBytes(sampleRate, minimum)).build()
         try {
             var total = 0L
             var playing = false

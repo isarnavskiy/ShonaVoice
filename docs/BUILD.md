@@ -4,7 +4,8 @@
 
 ## Подготовить модели
 
-1. Скачайте [ShonaVoice-Offline.apk из релиза v1.0.2](https://github.com/isarnavskiy/ShonaVoice/releases/download/v1.0.2/ShonaVoice-Offline.apk).
+1. Скачайте [ShonaVoice-Offline.apk из релиза v1.0.3](https://github.com/isarnavskiy/ShonaVoice/releases/download/v1.0.3/ShonaVoice-Offline.apk).
+   Для сборки также подходит подписанный APK версии 1.0.2 — обе версии содержат одинаковые файлы моделей.
 2. Откройте терминал в корне этого репозитория и передайте скрипту путь к скачанному файлу.
 
 ```console
@@ -13,10 +14,10 @@ python tools/prepare_models.py --apk "/path/to/ShonaVoice-Offline.apk"
 
 В Windows, если Python установлен через Python Launcher, используйте `py -3` вместо `python`. При успешной проверке появится сообщение `All 16 model files are ready.` Скрипт проверяет SHA-256 исходного APK и каждого извлечённого файла. Повторный запуск проверяет уже извлечённые файлы и заменяет повреждённые копии. Индекс моделей находится в [tools/release-pack.json](../tools/release-pack.json).
 
-| Что проверяет скрипт | Значение для v1.0.2 |
+| Что проверяет скрипт | Значение для v1.0.3 |
 | --- | --- |
 | Размер скачанного APK | 1 715 381 351 байт |
-| SHA-256 скачанного APK | `d61d415821620e9fba204cb668bd44e8d30390911a58040c3962b9bb17e64bdb` |
+| SHA-256 скачанного APK | `123c7722ee8cfbc1adf0775ef6e46afcc8207a3d1edc5b26c36be48b61ee3fd4` |
 | Проверенные файлы моделей | 16, всего 2 212 985 165 байта |
 | Каталог моделей на компьютере | `model-assets/embedded_models/` |
 | Каталог моделей в новом APK | `assets/embedded_models/` |
@@ -47,7 +48,7 @@ zipalign -c -P 16 4 app/build/outputs/apk/debug/app-debug.apk
 aapt dump badging app/build/outputs/apk/debug/app-debug.apk
 ```
 
-В манифесте приложения ожидаются пакет `dev.nikita.voice.offline`, минимальный API 26, целевой API 34 и ABI `arm64-v8a`. При нажатии на иконку запускается `dev.nikita.voice.BootstrapActivity`. Затем откроется экран переводчика `dev.nikita.voice.MainActivity`. Переведите короткую фразу в каждом направлении, включите озвучивание и повторите проверку в авиарежиме. Во время голосового ввода разрешите доступ к микрофону. Отпечаток APK из таблицы относится к опубликованному файлу v1.0.2. Локальная сборка содержит подпись выбранного вами ключа.
+В манифесте приложения ожидаются пакет `dev.nikita.voice.offline`, минимальный API 26, целевой API 34 и ABI `arm64-v8a`. При нажатии на иконку запускается `dev.nikita.voice.BootstrapActivity`. Затем откроется экран переводчика `dev.nikita.voice.MainActivity`. Переведите короткую фразу в каждом направлении, включите озвучивание и повторите проверку в авиарежиме. Во время голосового ввода разрешите доступ к микрофону. Отпечаток APK из таблицы относится к опубликованному файлу v1.0.3. Локальная сборка содержит подпись выбранного вами ключа.
 
 ## Исходники и сторонние компоненты
 
