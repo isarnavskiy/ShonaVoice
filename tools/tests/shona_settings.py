@@ -27,7 +27,16 @@ BRIDGE = """
       });
     },
     hasShonaNumberGroups(text) { return text.includes('14:30'); },
+    record(id) {
+      window.recording = id;
+      Promise.resolve().then(() => emit(id, 'recording'));
+    },
+    finish(id) {
+      emit(id, 'finishing');
+      Promise.resolve().then(() => emit(id, 'result', 'Запись 004.'));
+    },
     translate(id, text, from, to) {
+      window.calls.push({kind: 'translate', text, from, to});
       const shona = text.includes('14:30') ? 'Nguva 14:30.' : 'Kodhi 004.';
       Promise.resolve().then(() => emit(id, 'result', to === 'sn' ? shona : 'Код 004.'));
     },
@@ -78,6 +87,46 @@ def run():
             page.wait_for_function(
                 "id => window.calls.some(call => call.kind==='cancel' && call.id===id)", arg=request_id
             )
+
+        field = control("input")
+        def translations():
+            return page.evaluate("window.calls.filter(x => x.kind === 'translate').length")
+
+        field.fill("Договор 004.")
+        field.press("End")
+        field.press("Shift+Enter")
+        assert field.input_value().endswith("\n") and translations() == 0
+        field.press("Enter")
+        expect(control("output")).to_have_text("Kodhi 004.")
+        assert translations() == 1
+        field.press("Control+Enter")
+        assert translations() == 1  # Exact repeat uses the session cache.
+        field.fill("Договор 005.")
+        field.evaluate("""el => el.dispatchEvent(new InputEvent("beforeinput",
+            {inputType: "insertLineBreak", cancelable: true, bubbles: true}))""")
+        expect(control("output")).to_have_text("Kodhi 004.")
+        assert translations() == 2
+        field.fill("")
+        field.press("Enter")
+        assert translations() == 2
+
+        control("mic").tap()
+        expect(control("mic")).to_have_attribute("data-phase", "recording")
+        control("mic").tap()
+        expect(control("output")).to_have_text("Kodhi 004.")
+        assert translations() == 3
+        control("settings").tap()
+        control("reviewText").check()
+        control("close").tap()
+        page.reload()
+        control("mic").tap()
+        expect(control("mic")).to_have_attribute("data-phase", "recording")
+        control("mic").tap()
+        expect(field).to_have_value("Запись 004.")
+        assert translations() == 0
+        field.press("Enter")
+        expect(control("output")).to_have_text("Kodhi 004.")
+        assert translations() == 1
 
         choice = control("shonaVoice")
         sample = control("previewShona")

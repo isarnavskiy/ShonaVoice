@@ -32,6 +32,7 @@ if (!Promise.prototype.finally) {
   const requests = new Map();
   let serial = 0;
   let speech = null;
+  const recentTranslations = new Map();
   function request(start, event, signal) {
     const id = ++serial;
     let abort;
@@ -132,8 +133,16 @@ if (!Promise.prototype.finally) {
     status() {
       return JSON.parse(native.status());
     },
-    translate(text, from, to, signal) {
-      return request(id => native.translate(id, text, from, to), null, signal).promise;
+    async translate(text, from, to, signal) {
+      if (signal && signal.aborted) throw new DOMException('Операция остановлена.', 'AbortError');
+      const key = JSON.stringify([from, to, text]);
+      if (recentTranslations.has(key)) return recentTranslations.get(key);
+      const value = await request(id => native.translate(id, text, from, to), null, signal).promise;
+      if (value && value.trim()) {
+        if (recentTranslations.size >= 32) recentTranslations.delete(recentTranslations.keys().next().value);
+        recentTranslations.set(key, value);
+      }
+      return value;
     },
     hasShonaNumberGroups(text) {
       return typeof native.hasShonaNumberGroups === 'function' && native.hasShonaNumberGroups(text);

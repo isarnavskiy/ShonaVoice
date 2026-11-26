@@ -16,6 +16,7 @@ import org.json.JSONObject
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import kotlin.math.roundToInt
@@ -47,6 +48,7 @@ class MainActivity : Activity() {
         var future: Future<*>? = null
         var audio: SpeechOutput? = null
         var inputLanguage: String? = null
+        val finishedRecording = CompletableFuture<() -> FloatArray>()
         var capturing = false
     }
 
@@ -129,6 +131,7 @@ class MainActivity : Activity() {
         if (op.capturing) recorder.cancel()
         if (message != null) {
             op.cancelled = true
+            op.finishedRecording.cancel(false)
             op.future?.cancel(true)
         }
         op.audio?.close()
@@ -214,6 +217,18 @@ class MainActivity : Activity() {
                 onLimit = { runOnUiThread { if (active === op && op.capturing) finishRecording(op.id) } }
             )
             op.capturing = true
+            // Load the language model while the microphone is collecting this turn.
+            // Consume the complete recording only after manual release or the time limit.
+            work(op, "record_and_asr") {
+                MmsAsr(models()).transcribe(op.inputLanguage!!) {
+                    val pcm = op.finishedRecording.get().invoke()
+                    val clip = encodeWav(pcm)
+                    runOnUiThread { if (active === op) screen.send(op.id, "audio", clip) }
+                    pcm
+                }.trim().also {
+                    require(it.isNotBlank()) { "Не удалось разобрать речь. Повторите запись или введите текст." }
+                }
+            }
         } catch (e: Exception) {
             end(op, e.localizedMessage ?: "Не удалось открыть микрофон.")
         }
@@ -228,15 +243,7 @@ class MainActivity : Activity() {
         val capture = recorder.stopCapture()
         op.capturing = false
         screen.send(id, "finishing")
-        work(op, "asr") {
-            val pcm = capture()
-            val clip = encodeWav(pcm)
-            runOnUiThread { if (active === op) screen.send(id, "audio", clip) }
-            if (op.cancelled) return@work ""
-            MmsAsr(models()).transcribe(pcm, op.inputLanguage!!).trim().also {
-                require(it.isNotBlank()) { "Не удалось разобрать речь. Повторите запись или введите текст." }
-            }
-        }
+        op.finishedRecording.complete(capture)
     }
 
     /** In-memory preview of exactly the resampled input heard by the model. */
