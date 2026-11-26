@@ -10,20 +10,23 @@ import java.nio.LongBuffer
 
 /** One fixed language adapter per graph. Both graphs reference one INT8 weight file. */
 class MmsAsr(private val modelRoot: File) {
-    fun transcribe(audio16k: FloatArray, lang: String): String {
+    fun transcribe(lang: String, recording: () -> FloatArray): String {
         require(lang == "rus" || lang == "sna") { "Неизвестный язык распознавания" }
-        if (audio16k.size < RECEPTIVE_FIELD || audio16k.all { it == 0f }) return ""
         val folder = File(modelRoot, "asr")
         val metadata = JSONObject(File(folder, "$lang.tokens.json").readText())
         val tokenCount = metadata.getJSONArray("tokens").length()
-        val frameCount = 1 + (audio16k.size - RECEPTIVE_FIELD) / STRIDE
-        val scores = FloatArray(frameCount * tokenCount)
+        val frameCount: Int
+        val scores: FloatArray
         val env = OrtEnvironment.getEnvironment()
         OrtSession.SessionOptions().use { options ->
             options.setIntraOpNumThreads(2)
             options.setMemoryPatternOptimization(false)
             options.setCPUArenaAllocator(false)
             env.createSession(File(folder, "$lang.onnx").absolutePath, options).use { session ->
+                val audio16k = recording()
+                if (audio16k.size < RECEPTIVE_FIELD || audio16k.all { it == 0f }) return ""
+                frameCount = 1 + (audio16k.size - RECEPTIVE_FIELD) / STRIDE
+                scores = FloatArray(frameCount * tokenCount)
                 val coreSize = if (audio16k.size <= SINGLE_WINDOW_SAMPLES) frameCount else CORE_FRAMES
                 for (coreStart in 0 until frameCount step coreSize) {
                     if (Thread.currentThread().isInterrupted) throw InterruptedException()
