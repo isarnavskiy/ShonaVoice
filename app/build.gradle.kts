@@ -1,6 +1,7 @@
 import groovy.json.JsonSlurper
 import java.io.File
 import java.security.MessageDigest
+import java.util.Base64
 
 plugins {
     id("com.android.application")
@@ -27,7 +28,7 @@ android {
     val decodedTestKey = layout.buildDirectory.file("test-signing.p12").get().asFile
     if (testKey.isFile) {
         decodedTestKey.parentFile.mkdirs()
-        decodedTestKey.writeBytes(java.util.Base64.getMimeDecoder().decode(testKey.readText()))
+        decodedTestKey.writeBytes(Base64.getMimeDecoder().decode(testKey.readText()))
     }
     signingConfigs {
         create("test") {
