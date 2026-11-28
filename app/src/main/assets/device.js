@@ -165,7 +165,19 @@ if (!Promise.prototype.finally) {
       if (speech) speech.abort();
       speech = null;
     },
+    setFastTranslation(enabled) {
+      if (typeof native.setFastTranslation === 'function') native.setFastTranslation(!!enabled);
+      recentTranslations.clear();
+    },
     receive(event) {
+      if (event.type === 'timing') {
+        try {
+          window.dispatchEvent(new CustomEvent('nikita-timing', {
+            detail: JSON.parse(event.value)
+          }));
+        } catch (_unused) {}
+        return;
+      }
       const listener = requests.get(event.id);
       if (listener) listener(event);
     }

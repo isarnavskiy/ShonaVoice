@@ -27,6 +27,11 @@ internal object ModelCache {
     // Access order: the first entry is the least recently used one.
     private val entries = LinkedHashMap<String, Entry>(8, 0.75f, true)
 
+    private val loadNanos = java.util.concurrent.atomic.AtomicLong()
+
+    /** Milliseconds spent reading models since the previous call. Shown to the user per step. */
+    fun takeLoadMillis(): Long = loadNanos.getAndSet(0) / 1_000_000
+
     /** Bytes of model weights that may stay resident. 0 disables caching. */
     @Volatile var budgetBytes: Long = 0
 
@@ -36,9 +41,9 @@ internal object ModelCache {
     /** Intra-op threads for the heavier graphs: half of the cores, between 2 and 4. */
     fun threads(): Int = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 4)
 
-    /** Budget for a phone with [totalBytes] of RAM. Leaves room for Android, WebView and audio. */
+    /** Budget for a phone with [totalBytes] of RAM. On 6 GB it holds a whole voice turn (about 2.1 GB). */
     fun budgetFor(totalBytes: Long): Long =
-        (totalBytes / 2 - 800L * MB).coerceIn(0L, 3_500L * MB)
+        (totalBytes * 55 / 100 - 700L * MB).coerceIn(0L, 3_500L * MB)
 
     /** Size on disk of a graph plus the external weight files stored beside it. */
     fun weightBytes(graph: File, vararg external: File): Long = graph.length() + external.sumOf { it.length() }
@@ -112,7 +117,9 @@ internal object ModelCache {
         }
         evicted.forEach { it.session.close() }
         // Loading takes seconds. Keep the lock free so clear() from the UI thread never waits on it.
+        val loadStarted = System.nanoTime()
         val session = open()
+        loadNanos.addAndGet(System.nanoTime() - loadStarted)
         synchronized(this) {
             entries[key]?.let {
                 // Only the worker loads models, so this is defensive: keep the first copy.

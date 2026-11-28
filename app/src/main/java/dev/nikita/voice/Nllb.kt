@@ -14,7 +14,8 @@ class Nllb(modelRoot: File) {
     private val environment = OrtEnvironment.getEnvironment()
     private val tokenizer = File(directory, "sentencepiece.bpe.model").absolutePath
 
-    fun translate(text: String, src: String, dst: String): String {
+    /** [beam] compares three continuations into Shona. Without it every direction decodes one, which is faster. */
+    fun translate(text: String, src: String, dst: String, beam: Boolean = true): String {
         require(setOf(src, dst) == setOf("rus", "sna")) { "Неизвестное направление перевода." }
         require(text.isNotBlank()) { "Нет текста для перевода." }
         require(text.codePointCount(0, text.length) <= 2000) { "Текст превышает 2000 символов." }
@@ -38,7 +39,7 @@ class Nllb(modelRoot: File) {
         if (jobs.keys.none { word -> word.any { it.isLetter() } }) return text.trim()
         val config = JSONObject(File(directory, "config.json").readText())
         // The paired FLEURS check favored beam search into Shona and greedy decoding into Russian.
-        val preferBeam = dst == "sna"
+        val preferBeam = dst == "sna" && beam
         // The beam derivative keeps the greedy output, so once it exists one decoder serves both directions
         // and only one 476 MB graph needs to stay in memory.
         val decoderFile = if (preferBeam) BeamDecoder.model(directory)
@@ -360,8 +361,8 @@ class Nllb(modelRoot: File) {
     }
 
     /** Load the graphs for the next translation from [src] to [dst] if memory allows. */
-    fun warm(src: String, dst: String): Boolean {
-        val decoder = if (dst == "sna") BeamDecoder.existing(directory) ?: return false
+    fun warm(src: String, dst: String, beam: Boolean = true): Boolean {
+        val decoder = if (dst == "sna" && beam) BeamDecoder.existing(directory) ?: return false
             else BeamDecoder.existing(directory) ?: File(directory, "decoder.onnx")
         val encoder = File(directory, "encoder.onnx")
         return ModelCache.warm(encoder, encoder.length(), ::configure) &&

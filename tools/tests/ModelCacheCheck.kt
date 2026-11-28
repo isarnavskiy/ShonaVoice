@@ -62,8 +62,9 @@ fun main(args: Array<String>) {
     ModelCache.clear()
 
     val gb = 1024L * 1024 * 1024
-    check(ModelCache.budgetFor(4 * gb) in 1_100L * 1024 * 1024..1_300L * 1024 * 1024)
-    check(ModelCache.budgetFor(2 * gb) in 0L..300L * 1024 * 1024)
+    check(ModelCache.budgetFor(4 * gb) in 1_400L * 1024 * 1024..1_700L * 1024 * 1024)
+    check(ModelCache.budgetFor(5_500L * 1024 * 1024) >= 2_200L * 1024 * 1024)
+    check(ModelCache.budgetFor(2 * gb) in 0L..500L * 1024 * 1024)
     check(ModelCache.budgetFor(16 * gb) == 3_500L * 1024 * 1024)
     check(ModelCache.threads() in 2..4)
     println("ModelCache checks passed")

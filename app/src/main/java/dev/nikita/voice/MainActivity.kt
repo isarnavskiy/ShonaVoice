@@ -40,6 +40,7 @@ internal class DeviceBridge(private val activity: MainActivity) {
         activity.runOnUiThread { activity.record(id, lang) }
     @JavascriptInterface fun finish(id: Int) = activity.runOnUiThread { activity.finishRecording(id) }
     @JavascriptInterface fun cancel(id: Int) = activity.runOnUiThread { activity.cancel(id) }
+    @JavascriptInterface fun setFastTranslation(enabled: Boolean) { MainActivity.fastTranslation = enabled }
     @JavascriptInterface fun prepare(from: String, to: String, voiceId: String) =
         activity.runOnUiThread { activity.prepare(from, to, voiceId) }
 }
@@ -52,6 +53,8 @@ class MainActivity : Activity() {
         // User requests waiting for the worker. Background preparation yields to them between models.
         private val waiting = AtomicInteger()
         private var preparing = false // Read and written on the UI thread.
+        /** One translation candidate instead of three into Shona. Set from the settings screen. */
+        @Volatile var fastTranslation = true
     }
     private class Operation(val id: Int) {
         @Volatile var cancelled = false
@@ -60,6 +63,8 @@ class MainActivity : Activity() {
         var inputLanguage: String? = null
         val finishedRecording = CompletableFuture<() -> FloatArray>()
         var capturing = false
+        /** Start of the measured step. Voice input restarts it when the recording is handed over. */
+        @Volatile var measuredFrom = 0L
     }
 
     private lateinit var screen: ConversationScreen
@@ -174,8 +179,10 @@ class MainActivity : Activity() {
         val task = object : FutureTask<Unit>({
             dequeue()
             val started = SystemClock.elapsedRealtime()
+            op.measuredFrom = started
+            ModelCache.takeLoadMillis()
             try {
-                if (!op.cancelled) runAction(op, action)
+                if (!op.cancelled) runAction(op, stage, action)
             } finally {
                 Log.i("ShonaVoice", "stage=$stage elapsed_ms=${SystemClock.elapsedRealtime() - started}")
             }
@@ -186,10 +193,14 @@ class MainActivity : Activity() {
         worker.execute(task)
     }
 
-    private fun runAction(op: Operation, action: () -> String) {
+    private fun runAction(op: Operation, stage: String, action: () -> String) {
         try {
             val value = action()
-            runOnUiThread { end(op, value = value) }
+            val timing = timingJson(stage, SystemClock.elapsedRealtime() - op.measuredFrom, ModelCache.takeLoadMillis())
+            runOnUiThread {
+                if (active === op) screen.send(op.id, "timing", timing)
+                end(op, value = value)
+            }
         } catch (e: Exception) {
             val message = e.localizedMessage?.lineSequence()?.firstOrNull()?.take(250) ?: "Обработка прервана."
             runOnUiThread { end(op, message) }
@@ -199,6 +210,13 @@ class MainActivity : Activity() {
             ModelCache.clear()
             runOnUiThread { end(op, "Недостаточно оперативной памяти. Закройте другие приложения и повторите.") }
         }
+    }
+
+    private fun timingJson(stage: String, millis: Long, loadMillis: Long): String {
+        val memory = ActivityManager.MemoryInfo().also { getSystemService(ActivityManager::class.java).getMemoryInfo(it) }
+        return JSONObject().put("stage", stage).put("ms", millis).put("loadMs", loadMillis)
+            .put("ramMb", memory.totalMem / (1024 * 1024)).put("budgetMb", ModelCache.budgetBytes / (1024 * 1024))
+            .put("cores", Runtime.getRuntime().availableProcessors()).put("fast", fastTranslation).toString()
     }
 
     /**
@@ -223,8 +241,9 @@ class MainActivity : Activity() {
             try {
                 if (issue(path) != null) return@execute
                 val steps = listOf<() -> Boolean>(
+                    // The translator first: a recording hides the recognizer's load, nothing hides the translator's.
+                    { Nllb(path).warm(src, dst, beam = !fastTranslation) },
                     { MmsAsr(path).warm(src) },
-                    { Nllb(path).warm(src, dst) },
                     { SpeechOutput.warm(path, dst, voiceId) }
                 )
                 for (step in steps) {
@@ -251,7 +270,7 @@ class MainActivity : Activity() {
         val op = newOperation(id) ?: return
         work(op, "translation") {
             require(text.codePointCount(0, text.length) <= 2000 && text.isNotBlank()) { "Введите от 1 до 2000 символов." }
-            Nllb(models()).translate(text, language(from), language(to))
+            Nllb(models()).translate(text, language(from), language(to), beam = !fastTranslation)
         }
     }
 
@@ -306,6 +325,8 @@ class MainActivity : Activity() {
             work(op, "record_and_asr") {
                 MmsAsr(models()).transcribe(op.inputLanguage!!) {
                     val pcm = op.finishedRecording.get().invoke()
+                    // Report recognition time without the time spent speaking.
+                    op.measuredFrom = SystemClock.elapsedRealtime()
                     val clip = encodeWav(pcm)
                     runOnUiThread { if (active === op) screen.send(op.id, "audio", clip) }
                     pcm
