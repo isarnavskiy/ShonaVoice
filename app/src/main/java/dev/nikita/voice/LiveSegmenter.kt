@@ -3,31 +3,43 @@ package dev.nikita.voice
 import kotlin.math.log10
 
 /**
- * Splits a continuous microphone stream into phrases for hands-free translation.
+ * Splits a continuous microphone stream into chunks for hands-free translation of long talks.
  *
- * Audio arrives in 20 ms frames. A phrase starts after 60 ms of speech (with 300 ms of the audio
- * before it) and ends after [pauseMs] of silence. Speech without a pause is cut at the quietest
- * frame of its last three seconds once it reaches [maxSeconds], and the rest starts the next
- * phrase, so no audio is dropped between segments. The noise floor adapts to the room.
+ * Audio arrives in 20 ms frames. Speech starts a chunk after 60 ms (with 300 ms of the audio
+ * before it). A chunk ends at the first pause of [pauseMs] once it holds [minSeconds] of audio,
+ * or at any pause of [endPauseMs] (the speaker stopped). Speech without such a pause is cut at
+ * [maxSeconds]: at the last breath pause in its second half, otherwise at the quietest frame of
+ * its last three seconds, and the rest starts the next chunk, so no audio is dropped.
+ *
+ * Inside a chunk, pauses longer than 0.4 s are shortened to 0.4 s and their middles are reported
+ * as phrase boundaries, so the chunk can be recognized and translated phrase by phrase.
+ * The noise floor adapts to the room.
  */
 internal class LiveSegmenter(
     private val rate: Int,
-    private val emit: (ShortArray) -> Unit,
+    /** A chunk and the sample offsets of its phrase boundaries. */
+    private val emit: (ShortArray, IntArray) -> Unit,
     private val onSpeech: (Boolean) -> Unit = {},
     pauseMs: Int = 700,
-    maxSeconds: Int = 25,
+    endPauseMs: Int = 1800,
+    minSeconds: Int = 12,
+    maxSeconds: Int = 30,
 ) {
     val frame = (rate / 50).coerceAtLeast(1)
     private val pauseFrames = pauseMs / 20
+    private val endPauseFrames = endPauseMs / 20
+    private val minFrames = minSeconds * 50
     private val maxFrames = maxSeconds * 50
     private val prerollFrames = 15
     private val tailFrames = 15
+    private val keptSilence = 20 // Longer pauses are shortened to 0.4 s inside a chunk.
     private val startFrames = 3
     private val minVoicedFrames = 20 // 0.4 s of speech: shorter fragments are mostly clicks or cut words.
 
     private val samples = ShortArray((maxFrames + prerollFrames + 2) * frame)
     private val levels = DoubleArray(maxFrames + prerollFrames + 2)
-    private var frames = 0 // Frames in the current segment, or in the pre-roll while idle.
+    private val boundaries = ArrayList<Int>() // Frame indices of phrase boundaries in the chunk.
+    private var frames = 0 // Frames in the current chunk, or in the pre-roll while idle.
     private var inSegment = false
     private var voiced = 0
     private var silence = 0
@@ -35,22 +47,12 @@ internal class LiveSegmenter(
     private var floor = Double.NaN
     private var speaking = false
 
-    /**
-     * Set while the app's own voice plays through the loudspeaker. The microphone input is then
-     * ignored, so the translation is never recognized again as new speech. A phrase in progress
-     * is delivered as it was before the voice started.
-     */
-    @Volatile var muted = false
+    /** Seconds of audio in the chunk being recorded, 0 between chunks. */
+    @Volatile var chunkSeconds = 0.0
+        private set
 
     /** Accepts exactly [frame] samples. */
     fun push(chunk: ShortArray, offset: Int = 0) {
-        if (muted) {
-            if (inSegment) finish(frames - silence.coerceAtMost(frames) + minOf(silence, tailFrames))
-            frames = 0
-            run = 0
-            setSpeaking(false)
-            return
-        }
         val db = level(chunk, offset)
         floor = when {
             floor.isNaN() -> db
@@ -67,53 +69,73 @@ internal class LiveSegmenter(
                 inSegment = true
                 voiced = run
                 silence = 0
+                boundaries.clear()
                 setSpeaking(true)
             }
             return
         }
 
-        append(chunk, offset, db)
         if (speech) {
+            // Speech after a pause of at least 0.4 s: mark the middle of the kept pause as a phrase boundary.
+            if (silence >= keptSilence) boundaries.add(frames - keptSilence / 2)
+            append(chunk, offset, db)
             voiced++
             silence = 0
             setSpeaking(true)
         } else {
             silence++
+            if (silence <= keptSilence) append(chunk, offset, db)
             if (silence >= 8) setSpeaking(false)
         }
-        if (silence >= pauseFrames) {
-            // Keep a short tail after the last speech frame.
-            val keep = frames - silence + tailFrames
-            finish(keep.coerceAtMost(frames))
+        chunkSeconds = frames / 50.0
+        if (silence >= endPauseFrames || (silence >= pauseFrames && frames >= minFrames)) {
+            finish(endOfSpeech())
         } else if (frames >= maxFrames) {
-            // Continuous speech: cut at the quietest moment of the last three seconds.
-            val searchFrom = maxOf(frames - 150, frames / 2)
-            var cut = frames - 1
-            for (i in searchFrom until frames) if (levels[i] < levels[cut]) cut = i
-            val remainder = frames - (cut + 1)
-            val part = samples.copyOfRange(0, (cut + 1) * frame)
-            emit(part)
-            shift(cut + 1)
+            // Continuous speech: prefer a breath pause in the second half, else the quietest moment.
+            val pause = boundaries.lastOrNull { it >= frames / 2 && it < frames - 10 }
+            val cut = pause ?: quietestCut()
+            emit(samples.copyOfRange(0, cut * frame), offsets(cut))
+            val remainder = frames - cut
+            val later = boundaries.filter { it > cut }.map { it - cut }
+            shift(cut)
             frames = remainder
             voiced = remainder
+            boundaries.clear()
+            boundaries.addAll(later)
+            chunkSeconds = frames / 50.0
         }
     }
 
-    /** Emits the phrase in progress, if it contains speech. */
+    /** Emits the chunk in progress, if it contains speech. */
     fun flush() {
-        if (inSegment) finish(frames)
+        if (inSegment) finish(endOfSpeech())
         frames = 0
         inSegment = false
+        chunkSeconds = 0.0
         setSpeaking(false)
     }
 
+    private fun quietestCut(): Int {
+        val searchFrom = maxOf(frames - 150, frames / 2)
+        var quietest = frames - 1
+        for (i in searchFrom until frames) if (levels[i] < levels[quietest]) quietest = i
+        return quietest + 1
+    }
+
+    /** End of the chunk: the last speech frame plus a short tail. */
+    private fun endOfSpeech(): Int = (frames - minOf(silence, keptSilence) + tailFrames).coerceAtMost(frames)
+
+    private fun offsets(end: Int): IntArray = boundaries.filter { it in 1 until end }.map { it * frame }.toIntArray()
+
     private fun finish(keep: Int) {
-        if (voiced >= minVoicedFrames) emit(samples.copyOfRange(0, keep * frame))
+        if (voiced >= minVoicedFrames) emit(samples.copyOfRange(0, keep * frame), offsets(keep))
         frames = 0
         inSegment = false
         voiced = 0
         silence = 0
         run = 0
+        boundaries.clear()
+        chunkSeconds = 0.0
     }
 
     private fun append(chunk: ShortArray, offset: Int, db: Double) {

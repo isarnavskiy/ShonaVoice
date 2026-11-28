@@ -5,27 +5,25 @@ import android.os.Process
 import kotlin.concurrent.thread
 
 /**
- * Microphone loop for hands-free translation. Recording never pauses: each phrase found by
- * [LiveSegmenter] is handed to [onSegment] (on the capture thread) while capture continues,
- * so recognition and translation of one phrase overlap with recording of the next.
+ * Microphone loop for hands-free translation of long talks. Recording never pauses and has no
+ * time limit: each chunk found by [LiveSegmenter] is handed to [onSegment] (on the capture thread)
+ * with its phrase boundaries while capture continues, so recognition and translation of one chunk
+ * overlap with recording of the next.
  */
 internal class LiveCapture(
-    /** The phone's own microphone, so a headset worn by the listener does not record the room. */
+    /** The phone's own microphone, so a plugged-in headset does not record instead of the room. */
     private val preferredInput: android.media.AudioDeviceInfo?,
-    private val onSegment: (ShortArray, Int) -> Unit,
+    /** Chunk samples, phrase boundary offsets and the sample rate. */
+    private val onSegment: (ShortArray, IntArray, Int) -> Unit,
     private val onSpeech: (Boolean) -> Unit,
     private val onClosed: (Exception?) -> Unit,
 ) {
     @Volatile private var stopping = false
     @Volatile private var cancelled = false
     @Volatile private var segmenter: LiveSegmenter? = null
-    @Volatile private var pendingMuted = false
 
-    /** Ignore the microphone while the app's voice plays through the loudspeaker. */
-    fun setMuted(value: Boolean) {
-        pendingMuted = value
-        segmenter?.muted = value
-    }
+    /** Seconds recorded in the chunk in progress. */
+    fun chunkSeconds(): Double = segmenter?.chunkSeconds ?: 0.0
 
     fun start() {
         thread(name = "Shona Voice live capture") {
@@ -39,10 +37,10 @@ internal class LiveCapture(
         }
     }
 
-    /** Stop listening. The phrase in progress is still recognized and translated. */
+    /** Stop listening. The chunk in progress is still recognized and translated. */
     fun stop() { stopping = true }
 
-    /** Stop listening and drop the phrase in progress. */
+    /** Stop listening and drop the chunk in progress. */
     fun cancel() {
         cancelled = true
         stopping = true
@@ -54,8 +52,7 @@ internal class LiveCapture(
         preferredInput?.let { runCatching { mic.setPreferredDevice(it) } }
         try {
             val rate = mic.sampleRate
-            val segmenter = LiveSegmenter(rate, { onSegment(it, rate) }, onSpeech)
-            segmenter.muted = pendingMuted
+            val segmenter = LiveSegmenter(rate, { pcm, marks -> onSegment(pcm, marks, rate) }, onSpeech)
             this.segmenter = segmenter
             val chunk = ShortArray(segmenter.frame)
             mic.startRecording()

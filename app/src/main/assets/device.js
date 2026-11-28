@@ -165,10 +165,8 @@ if (!Promise.prototype.finally) {
       if (speech) speech.abort();
       speech = null;
     },
-    live(from, to, onEvent, options = {}) {
-      const speak = !!options.speak && typeof native.liveWith === 'function';
-      const job = request(id => speak ? native.liveWith(id, from, to, true, options.voiceId || '') : native.live(id, from, to),
-        (type, value) => onEvent(type, value));
+    live(from, to, onEvent) {
+      const job = request(id => native.live(id, from, to), (type, value) => onEvent(type, value));
       return {
         promise: job.promise,
         stop: () => native.finish(job.id),

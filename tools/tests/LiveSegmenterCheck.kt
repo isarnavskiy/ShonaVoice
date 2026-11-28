@@ -12,55 +12,58 @@ fun main() {
     fun speech(seconds: Double) = ShortArray((seconds * rate).toInt()) {
         (9000 * sin(2 * PI * 180 * it / rate) * (0.6 + 0.4 * sin(2 * PI * 3 * it / rate)) + random.nextInt(-60, 60)).toInt().toShort()
     }
-    fun run(vararg parts: ShortArray, flush: Boolean = true): List<Double> {
-        val out = mutableListOf<Double>()
-        val segmenter = LiveSegmenter(rate, { out.add(it.size.toDouble() / rate) })
+    class Chunk(val seconds: Double, val phrases: List<Double>)
+    fun run(vararg parts: ShortArray, minSeconds: Int = 12): List<Chunk> {
+        val out = mutableListOf<Chunk>()
+        val segmenter = LiveSegmenter(rate, { pcm, marks ->
+            out.add(Chunk(pcm.size.toDouble() / rate, marks.map { it.toDouble() / rate }))
+        }, minSeconds = minSeconds)
         val all = parts.fold(ShortArray(0)) { a, b -> a + b }
         var i = 0
         while (i + segmenter.frame <= all.size) { segmenter.push(all, i); i += segmenter.frame }
-        if (flush) segmenter.flush()
-        return out
-    }
-
-    // Two phrases separated by a one-second pause become two segments with padding.
-    val two = run(noise(1.0), speech(2.0), noise(1.0), speech(1.5), noise(1.0))
-    check(two.size == 2) { "expected 2 segments, got $two" }
-    check(two[0] in 2.2..2.8 && two[1] in 1.7..2.3) { "lengths $two" }
-
-    // A short pause inside a phrase does not split it.
-    val joined = run(noise(1.0), speech(1.0), noise(0.3), speech(1.0), noise(1.0))
-    check(joined.size == 1 && joined[0] in 2.4..3.0) { "joined $joined" }
-
-    // Continuous speech is cut at the 25 s limit and the rest is kept for the next segment.
-    val long = run(noise(1.0), speech(40.0), noise(1.0))
-    check(long.size == 2 && long[0] <= 25.4 && long.sum() >= 40.0) { "long $long" }
-
-    // Noise alone and very short clicks produce nothing.
-    check(run(noise(5.0)).isEmpty())
-    check(run(noise(1.0), speech(0.1), noise(2.0)).isEmpty())
-
-    // Stopping in the middle of a phrase still delivers it.
-    val stopped = run(noise(1.0), speech(2.0))
-    check(stopped.size == 1 && stopped[0] >= 2.0) { "stopped $stopped" }
-    // While the app speaks through the loudspeaker the microphone is ignored: its echo never
-    // becomes a phrase, and a phrase in progress when the voice starts is delivered as it was.
-    fun mutedRun(mutedFrom: Double, mutedTo: Double, vararg parts: ShortArray): List<Double> {
-        val out = mutableListOf<Double>()
-        val segmenter = LiveSegmenter(rate, { out.add(it.size.toDouble() / rate) })
-        val all = parts.fold(ShortArray(0)) { a, b -> a + b }
-        var i = 0
-        while (i + segmenter.frame <= all.size) {
-            segmenter.muted = i >= mutedFrom * rate && i < mutedTo * rate
-            segmenter.push(all, i)
-            i += segmenter.frame
-        }
         segmenter.flush()
         return out
     }
-    check(mutedRun(1.0, 5.0, noise(1.0), speech(4.0), noise(1.0)).isEmpty()) { "echo became a phrase" }
-    val cut = mutedRun(2.0, 4.0, noise(1.0), speech(3.0), noise(2.0))
-    check(cut.size == 1 && cut[0] in 1.0..1.6) { "phrase at mute $cut" }
-    val after = mutedRun(1.0, 3.0, noise(1.0), speech(2.0), noise(0.5), speech(1.5), noise(1.0))
-    check(after.size == 1 && after[0] in 1.6..2.3) { "speech after mute $after" }
+    fun talk(phrases: Int, phrase: Double, pause: Double): Array<ShortArray> =
+        Array(phrases * 2) { if (it % 2 == 0) speech(phrase) else noise(pause) }
+
+    // A long talk with one-second pauses between 4 s phrases becomes chunks of 12-30 s,
+    // each split into its phrases, and nothing is lost.
+    val talk = run(noise(1.0), *talk(12, 4.0, 1.0), noise(3.0))
+    check(talk.size in 2..4) { "chunks ${talk.map { it.seconds }}" }
+    check(talk.dropLast(1).all { it.seconds in 12.0..30.5 }) { "chunk lengths ${talk.map { it.seconds }}" }
+    val speechSeconds = 12 * 4.0
+    check(talk.sumOf { it.seconds } >= speechSeconds) { "lost audio ${talk.map { it.seconds }}" }
+    // Pauses are shortened to 0.4 s, so a chunk is mostly speech.
+    check(talk.sumOf { it.seconds } <= speechSeconds + 12 * 0.5 + 1.0) { "kept silence ${talk.map { it.seconds }}" }
+    check(talk.first().phrases.size >= 2) { "phrase marks ${talk.first().phrases}" }
+
+    // When the speaker stops for two seconds, the chunk ends even if it is short.
+    val short = run(noise(1.0), speech(3.0), noise(2.5), speech(2.0), noise(2.5))
+    check(short.size == 2 && short[0].seconds in 3.0..3.8) { "short ${short.map { it.seconds }}" }
+
+    // A short pause inside a phrase neither splits the chunk nor marks a phrase.
+    val joined = run(noise(1.0), speech(1.0), noise(0.3), speech(1.0), noise(3.0))
+    check(joined.size == 1 && joined[0].seconds in 2.4..3.0 && joined[0].phrases.isEmpty()) {
+        "joined ${joined.map { it.seconds }} ${joined.firstOrNull()?.phrases}"
+    }
+
+    // Speech without any pause is cut at 30 s and the rest continues in the next chunk.
+    val long = run(noise(1.0), speech(70.0), noise(3.0))
+    check(long.size == 3 && long.dropLast(1).all { it.seconds <= 30.4 } && long.sumOf { it.seconds } >= 70.0) {
+        "long ${long.map { it.seconds }}"
+    }
+
+    // A pause in the second half is preferred over a cut in the middle of a word.
+    val breath = run(noise(1.0), *talk(4, 7.5, 0.6), noise(3.0), minSeconds = 40)
+    check(breath[0].seconds in 15.0..30.0 && breath.sumOf { it.seconds } >= 30.0) { "breath ${breath.map { it.seconds }}" }
+
+    // Noise alone and very short clicks produce nothing.
+    check(run(noise(5.0)).isEmpty())
+    check(run(noise(1.0), speech(0.1), noise(3.0)).isEmpty())
+
+    // Stopping in the middle of a phrase still delivers it.
+    val stopped = run(noise(1.0), speech(2.0))
+    check(stopped.size == 1 && stopped[0].seconds >= 2.0) { "stopped ${stopped.map { it.seconds }}" }
     println("LiveSegmenter checks passed")
 }
