@@ -1,0 +1,77 @@
+name: Test APK
+
+# Builds an installable test APK with all offline models and publishes it on the
+# "test-build" pre-release. The test app ("Shona Voice Test", dev.nikita.voice.offline.test)
+# installs next to the release app, so its favorites and settings are not touched.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'tools/release-pack.json'
+      - 'tools/ci/**'
+      - '.github/workflows/test-apk.yml'
+      - '*.gradle.kts'
+      - 'gradle/**'
+      - 'gradle.properties'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: test-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Free disk space for 2.2 GB of models
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/node_modules /opt/ghc /usr/local/.ghcup \
+            /usr/share/swift /usr/local/share/boost /opt/hostedtoolcache/CodeQL "$AGENT_TOOLSDIRECTORY/CodeQL" || true
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK Platform 35 and Build-Tools 35.0.0
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - name: Extract verified models from the v1.0.4 release APK
+        run: |
+          mkdir -p "$RUNNER_TEMP/source"
+          gh release download v1.0.4 --repo "$GITHUB_REPOSITORY" --pattern ShonaVoice-Offline.apk --dir "$RUNNER_TEMP/source"
+          python3 tools/prepare_models.py --apk "$RUNNER_TEMP/source/ShonaVoice-Offline.apk"
+          rm -rf "$RUNNER_TEMP/source"
+          df -h /
+
+      - name: Build test APK
+        run: ./gradlew --no-daemon :app:assembleDebug
+
+      - name: Publish on the test-build pre-release
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          NAME="ShonaVoice-Test.apk"
+          mv app/build/outputs/apk/debug/app-debug.apk "$NAME"
+          SHA=$(sha256sum "$NAME" | cut -d' ' -f1)
+          NOTES="Тестовая сборка $VERSION-test из ${GITHUB_SHA::7}.
+
+          Устанавливается рядом с основным приложением под именем «Shona Voice Test». Избранное и настройки основной версии не затрагиваются. Следующие тестовые сборки обновляются поверх этой.
+
+          SHA-256: \`$SHA\`"
+          # Recreate the release so its tag always points at the commit the APK was built from.
+          gh release delete test-build --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          gh release create test-build "$NAME" --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+            --title "Тестовая сборка $VERSION" --notes "$NOTES" --target "$GITHUB_SHA"

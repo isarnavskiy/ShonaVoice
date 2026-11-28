@@ -16,9 +16,35 @@ android {
         applicationId = "dev.nikita.voice.offline"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.0.4"
+        versionCode = 9
+        versionName = "1.0.5"
         ndk { abiFilters += "arm64-v8a" }
+        manifestPlaceholders["appLabel"] = "Shona Voice"
+    }
+    // Test builds install next to the release app, so favorites and settings there stay untouched.
+    // The key is decoded from tools/ci/test-signing.p12.b64 and is public: use it only for test builds.
+    val testKey = rootProject.file("tools/ci/test-signing.p12.b64")
+    val decodedTestKey = layout.buildDirectory.file("test-signing.p12").get().asFile
+    if (testKey.isFile) {
+        decodedTestKey.parentFile.mkdirs()
+        decodedTestKey.writeBytes(java.util.Base64.getMimeDecoder().decode(testKey.readText()))
+    }
+    signingConfigs {
+        create("test") {
+            storeFile = decodedTestKey
+            storeType = "pkcs12"
+            storePassword = "shonavoice-test"
+            keyAlias = "test"
+            keyPassword = "shonavoice-test"
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-test"
+            manifestPlaceholders["appLabel"] = "Shona Voice Test"
+            if (testKey.isFile) signingConfig = signingConfigs.getByName("test")
+        }
     }
     sourceSets["main"].assets.srcDir(rootProject.file("model-assets"))
     packaging.jniLibs.useLegacyPackaging = false

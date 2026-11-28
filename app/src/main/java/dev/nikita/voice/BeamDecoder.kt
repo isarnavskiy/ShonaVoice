@@ -18,6 +18,17 @@ internal object BeamDecoder {
     private fun sourceChecksum(source: File): String {
         val stamp = Stamp(source.canonicalPath, source.length(), source.lastModified())
         lastSource?.takeIf { it.first == stamp }?.let { return it.second }
+        // Hashing 476 MB took seconds on every app start before the first translation into Shona.
+        // Remember the result for this exact file size and modification time across launches.
+        val remembered = File(source.parentFile, source.name + ".sha256")
+        val key = "${stamp.length} ${stamp.modified} "
+        runCatching { remembered.readText() }.getOrNull()?.takeIf { it.startsWith(key) }?.let {
+            val hash = it.removePrefix(key).trim()
+            if (hash.length == 64) {
+                lastSource = stamp to hash
+                return hash
+            }
+        }
         val digest = MessageDigest.getInstance("SHA-256")
         source.inputStream().use { input ->
             val buffer = ByteArray(1024 * 1024)
@@ -30,7 +41,18 @@ internal object BeamDecoder {
         }
         val hash = digest.digest().joinToString("") { "%02x".format(it) }
         lastSource = stamp to hash
+        runCatching { remembered.writeText(key + hash) }
         return hash
+    }
+
+    /** The prepared derivative, if a previous translation into Shona already created and verified it. */
+    @Synchronized
+    fun existing(directory: File): File? {
+        val recipe = checkNotNull(javaClass.getResourceAsStream("/decoder-beam.json")) {
+            "В приложении отсутствует описание декодера."
+        }.bufferedReader().use { JSONObject(it.readText()) }
+        val target = File(directory, "decoder-${recipe.getString("sha256").take(16)}.onnx")
+        return target.takeIf { it.isFile && it.length() == recipe.getLong("bytes") }
     }
 
     @Synchronized

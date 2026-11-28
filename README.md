@@ -22,6 +22,10 @@
 
 Интернет нужен только для скачивания APK. В APK уже есть переводчик, распознавание, русский голос и два голоса шона. [Страница релиза и контрольная сумма файла](https://github.com/isarnavskiy/ShonaVoice/releases/latest)
 
+### Тестовая сборка
+
+[Скачать ShonaVoice-Test.apk](https://github.com/isarnavskiy/ShonaVoice/releases/download/test-build/ShonaVoice-Test.apk) — свежая сборка из ветки `main`, её собирает GitHub Actions ([Test APK](.github/workflows/test-apk.yml)). Приложение «Shona Voice Test» устанавливается рядом с основным, поэтому удалять основную версию не нужно, а её избранное и настройки сохраняются. Следующие тестовые сборки ставятся поверх предыдущей. Что изменилось в скорости, описано в [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
 ## Как звучит шона
 
 В **Настройки → Модель озвучивания на шона** можно выбрать голос и нажать **Прослушать пример**. Выбор сохраняется на телефоне. В этих двух записях голоса произносят одну фразу: *Zita rako ndiani? Ndinokutendai zvikuru.* («Как вас зовут? Большое спасибо»).

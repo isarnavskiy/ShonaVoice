@@ -1,10 +1,6 @@
 package dev.nikita.voice
 
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioTrack
-import android.os.SystemClock
 import android.util.Log
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
@@ -81,26 +77,25 @@ class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val m
         check(sampleRate == 16000 && descriptor.getBoolean("add_blank")) { "Неподходящий формат встроенного голоса." }
 
         val environment = OrtEnvironment.getEnvironment()
-        OrtSession.SessionOptions().use { options ->
-            options.setIntraOpNumThreads(2)
-            options.setMemoryPatternOptimization(false)
-            environment.createSession(graph.absolutePath, options).use { session ->
-                if (shona) {
-                    val phrases = ShonaProsody.plan(text) { vocab.has(it.toString()) }
-                    require(phrases.isNotEmpty()) { "В переводе нет символов, доступных выбранному голосу." }
-                    ShonaPlayback.play(sampleRate, { checkActive(token) }, ::stopInference) { emit ->
-                        for (phrase in phrases) {
-                            checkActive(token)
-                            val pcm = synthesize(environment, session, idsFor(phrase.text, vocab), token)
-                            emit(ShonaProsody.withPause(pcm, sampleRate, phrase.pauseAfterMs))
-                        }
+        ModelCache.use(graph, graph.length(), ::configureVoice) { session ->
+            if (shona) {
+                val phrases = ShonaProsody.plan(text) { vocab.has(it.toString()) }
+                require(phrases.isNotEmpty()) { "В переводе нет символов, доступных выбранному голосу." }
+                ShonaPlayback.play(sampleRate, { checkActive(token) }, ::stopInference) { emit ->
+                    for (phrase in phrases) {
+                        checkActive(token)
+                        val pcm = synthesize(environment, session, idsFor(phrase.text, vocab), token)
+                        emit(ShonaProsody.withPause(pcm, sampleRate, phrase.pauseAfterMs))
                     }
-                    return
                 }
-                val normalized = text.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ")
-                    .filter { vocab.has(it.toString()) }.trim()
-                require(normalized.isNotEmpty()) { "В переводе нет символов, доступных выбранному голосу." }
-                // Short clauses also bound the VITS decoder's activation buffers.
+                return
+            }
+            val normalized = text.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ")
+                .filter { vocab.has(it.toString()) }.trim()
+            require(normalized.isNotEmpty()) { "В переводе нет символов, доступных выбранному голосу." }
+            // Short clauses also bound the VITS decoder's activation buffers. The streaming player
+            // starts the first clause as soon as it is ready and synthesizes the next one meanwhile.
+            ShonaPlayback.play(sampleRate, { checkActive(token) }, ::stopInference) { emit ->
                 var start = 0
                 while (start < normalized.length) {
                     checkActive(token)
@@ -111,12 +106,12 @@ class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val m
                     start = end
                     while (start < normalized.length && normalized[start] == ' ') start++
                     if (clause.isEmpty()) continue
-                    val pcm = synthesize(environment, session, idsFor(clause, vocab), token)
-                    playSamples(pcm, sampleRate, token)
+                    emit(synthesize(environment, session, idsFor(clause, vocab), token))
                 }
             }
         }
     }
+
 
     private fun idsFor(clause: String, vocab: JSONObject): LongArray {
         val ids = LongArray(2 * clause.length + 1)
@@ -160,26 +155,19 @@ class SpeechOutput(@Suppress("UNUSED_PARAMETER") context: Context, private val m
         }
     }
 
-    private fun playSamples(samples: ShortArray, sampleRate: Int, token: Long) {
-        checkActive(token)
-        val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
-        val format = AudioFormat.Builder().setSampleRate(sampleRate)
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()
-        val player = AudioTrack.Builder().setAudioAttributes(attributes).setAudioFormat(format)
-            .setTransferMode(AudioTrack.MODE_STATIC).setBufferSizeInBytes(samples.size * 2).build()
-        try {
-            check(player.write(samples, 0, samples.size) == samples.size) { "Не удалось записать звук для воспроизведения." }
-            checkActive(token)
-            player.play()
-            val deadline = SystemClock.elapsedRealtime() + 1000L * samples.size / sampleRate + 5000L
-            while (player.playbackHeadPosition < samples.size && player.playState == AudioTrack.PLAYSTATE_PLAYING) {
-                checkActive(token)
-                check(SystemClock.elapsedRealtime() < deadline) { "Не удалось завершить воспроизведение." }
-                Thread.sleep(25)
-            }
-        } finally {
-            player.release()
+    companion object {
+        private fun configureVoice(options: OrtSession.SessionOptions) {
+            options.setIntraOpNumThreads(ModelCache.threads())
+            options.setMemoryPatternOptimization(false)
+            options.setCPUArenaAllocator(false)
+        }
+
+        /** Load the voice that will read the next translation into [lang] if memory allows. */
+        fun warm(modelRoot: File, lang: String, voiceId: String = ""): Boolean {
+            val voice = if (lang == "sna") ShonaVoice.select(modelRoot, voiceId) else null
+            if (voice == ShonaVoice.EVERYVOICE) return EveryVoiceShona.warm(voice.directory(modelRoot))
+            val graph = File(voice?.directory(modelRoot) ?: File(modelRoot, "tts/rus"), "model.onnx")
+            return graph.isFile && ModelCache.warm(graph, graph.length(), ::configureVoice)
         }
     }
 }

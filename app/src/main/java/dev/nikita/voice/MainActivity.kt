@@ -2,6 +2,8 @@ package dev.nikita.voice
 
 import android.Manifest
 import android.app.Activity
+import android.app.ActivityManager
+import android.content.ComponentCallbacks2
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -19,6 +21,9 @@ import java.nio.ByteOrder
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
+import java.util.concurrent.FutureTask
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
 internal class DeviceBridge(private val activity: MainActivity) {
@@ -35,6 +40,8 @@ internal class DeviceBridge(private val activity: MainActivity) {
         activity.runOnUiThread { activity.record(id, lang) }
     @JavascriptInterface fun finish(id: Int) = activity.runOnUiThread { activity.finishRecording(id) }
     @JavascriptInterface fun cancel(id: Int) = activity.runOnUiThread { activity.cancel(id) }
+    @JavascriptInterface fun prepare(from: String, to: String, voiceId: String) =
+        activity.runOnUiThread { activity.prepare(from, to, voiceId) }
 }
 
 class MainActivity : Activity() {
@@ -42,6 +49,9 @@ class MainActivity : Activity() {
         // A previous Activity's running native inference must finish before a new one loads weights.
         private val worker = Executors.newSingleThreadExecutor()
         private const val MIC_PERMISSION = 16
+        // User requests waiting for the worker. Background preparation yields to them between models.
+        private val waiting = AtomicInteger()
+        private var preparing = false // Read and written on the UI thread.
     }
     private class Operation(val id: Int) {
         @Volatile var cancelled = false
@@ -57,6 +67,7 @@ class MainActivity : Activity() {
     private var active: Operation? = null
     private var foreground = false
     private var permissionOp: Operation? = null
+    private var nextPreparation: Triple<String, String, String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,6 +76,9 @@ class MainActivity : Activity() {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         }
+        val memory = getSystemService(ActivityManager::class.java)
+        ModelCache.budgetBytes = ModelCache.budgetFor(ActivityManager.MemoryInfo().also { memory.getMemoryInfo(it) }.totalMem)
+        ModelCache.memoryLow = { ActivityManager.MemoryInfo().also { memory.getMemoryInfo(it) }.lowMemory }
         screen = ConversationScreen(this, DeviceBridge(this))
         setContentView(screen)
     }
@@ -80,6 +94,15 @@ class MainActivity : Activity() {
         active?.let { end(it, "Операция остановлена.") }
         screen.onPause()
         super.onStop()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        // Keep models while the user briefly switches apps; free them when Android needs the memory.
+        @Suppress("DEPRECATION")
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW && level != ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            ModelCache.clear()
+        }
     }
 
     override fun onDestroy() {
@@ -144,21 +167,82 @@ class MainActivity : Activity() {
     }
 
     private fun work(op: Operation, stage: String, action: () -> String) {
-        op.future = worker.submit {
+        val queued = AtomicBoolean(true)
+        fun dequeue() { if (queued.getAndSet(false)) waiting.decrementAndGet() }
+        waiting.incrementAndGet()
+        // done() also runs for a request cancelled before it started, so the count cannot leak.
+        val task = object : FutureTask<Unit>({
+            dequeue()
             val started = SystemClock.elapsedRealtime()
             try {
-                if (op.cancelled) return@submit
-                val value = action()
-                runOnUiThread { end(op, value = value) }
-            } catch (e: Exception) {
-                val message = e.localizedMessage?.lineSequence()?.firstOrNull()?.take(250) ?: "Обработка прервана."
-                runOnUiThread { end(op, message) }
-            } catch (e: LinkageError) {
-                runOnUiThread { end(op, "Не удалось загрузить библиотеки моделей на этом телефоне.") }
-            } catch (e: OutOfMemoryError) {
-                runOnUiThread { end(op, "Недостаточно оперативной памяти. Закройте другие приложения и повторите.") }
+                if (!op.cancelled) runAction(op, action)
             } finally {
                 Log.i("ShonaVoice", "stage=$stage elapsed_ms=${SystemClock.elapsedRealtime() - started}")
+            }
+        }) {
+            override fun done() = dequeue()
+        }
+        op.future = task
+        worker.execute(task)
+    }
+
+    private fun runAction(op: Operation, action: () -> String) {
+        try {
+            val value = action()
+            runOnUiThread { end(op, value = value) }
+        } catch (e: Exception) {
+            val message = e.localizedMessage?.lineSequence()?.firstOrNull()?.take(250) ?: "Обработка прервана."
+            runOnUiThread { end(op, message) }
+        } catch (e: LinkageError) {
+            runOnUiThread { end(op, "Не удалось загрузить библиотеки моделей на этом телефоне.") }
+        } catch (e: OutOfMemoryError) {
+            ModelCache.clear()
+            runOnUiThread { end(op, "Недостаточно оперативной памяти. Закройте другие приложения и повторите.") }
+        }
+    }
+
+    /**
+     * Load the recognizer, translator and voice for the selected direction while the user is reading
+     * or typing, so the first recording and translation do not wait for weights. Only models that fit
+     * in the memory budget are loaded, and any user request takes priority between models.
+     */
+    internal fun prepare(from: String, to: String, voiceId: String) {
+        if (!foreground) return
+        if (preparing) {
+            // Run once more for the latest direction when the current preparation ends.
+            nextPreparation = Triple(from, to, voiceId)
+            return
+        }
+        val src = runCatching { language(from) }.getOrNull() ?: return
+        val dst = runCatching { language(to) }.getOrNull() ?: return
+        if (src == dst) return
+        val path = root() ?: return
+        preparing = true
+        worker.execute {
+            val started = SystemClock.elapsedRealtime()
+            try {
+                if (issue(path) != null) return@execute
+                val steps = listOf<() -> Boolean>(
+                    { MmsAsr(path).warm(src) },
+                    { Nllb(path).warm(src, dst) },
+                    { SpeechOutput.warm(path, dst, voiceId) }
+                )
+                for (step in steps) {
+                    if (waiting.get() > 0 || !foreground) break
+                    if (!step()) break
+                }
+            } catch (e: Throwable) {
+                // Preparation is an optimization. The real request reports any problem with the models.
+                Log.w("ShonaVoice", "Model preparation skipped", e)
+            } finally {
+                Log.i("ShonaVoice", "stage=prepare elapsed_ms=${SystemClock.elapsedRealtime() - started}")
+                runOnUiThread {
+                    preparing = false
+                    nextPreparation?.let { (f, t, v) ->
+                        nextPreparation = null
+                        if (!isDestroyed) prepare(f, t, v)
+                    }
+                }
             }
         }
     }
@@ -246,7 +330,7 @@ class MainActivity : Activity() {
         op.finishedRecording.complete(capture)
     }
 
-    /** In-memory preview of exactly the resampled input heard by the model. */
+    /** In-memory preview of the resampled recording. The recognizer additionally trims long silence at its ends. */
     private fun encodeWav(samples: FloatArray): String {
         val size = samples.size * 2
         val wav = ByteBuffer.allocate(44 + size).order(ByteOrder.LITTLE_ENDIAN)

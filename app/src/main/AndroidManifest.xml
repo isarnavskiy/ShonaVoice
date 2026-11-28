@@ -4,7 +4,7 @@
     <queries>
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
     </queries>
-    <application android:label="Shona Voice" android:icon="@mipmap/ic_launcher" android:allowBackup="false" android:theme="@style/VoiceTheme">
+    <application android:label="${appLabel}" android:icon="@mipmap/ic_launcher" android:allowBackup="false" android:theme="@style/VoiceTheme">
         <activity android:name="dev.nikita.voice.BootstrapActivity" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
