@@ -165,6 +165,33 @@ if (!Promise.prototype.finally) {
       if (speech) speech.abort();
       speech = null;
     },
+    live(from, to, onEvent) {
+      const job = request(id => native.live(id, from, to), (type, value) => onEvent(type, value));
+      return {
+        promise: job.promise,
+        stop: () => native.finish(job.id),
+        abort: job.abort
+      };
+    },
+    journal: Object.freeze({
+      add(from, to, source, translation, mode) {
+        if (typeof native.journalAdd === 'function') native.journalAdd(from, to, source, translation, mode);
+      },
+      read() {
+        if (typeof native.journalRead !== 'function') return [];
+        try {
+          return JSON.parse(native.journalRead());
+        } catch (_unused) {
+          return [];
+        }
+      },
+      clear() {
+        if (typeof native.journalClear === 'function') native.journalClear();
+      },
+      exportFile() {
+        return typeof native.journalExport === 'function' ? native.journalExport() : 'Сохранение журнала недоступно.';
+      }
+    }),
     setFastTranslation(enabled) {
       if (typeof native.setFastTranslation === 'function') native.setFastTranslation(!!enabled);
       recentTranslations.clear();

@@ -154,6 +154,33 @@ main { flex: 1; padding: 0 9px 87px; padding: 0 9px calc(87px + env(safe-area-in
 .result-area { border-top: 1px solid var(--divider); background: var(--result); border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); }
 #output { min-height: 83px; max-height: 36vh; min-height: clamp(83px, 14.5vh, 123px); padding-right: 7px; max-height: 36dvh; overflow-y: auto; white-space: pre-wrap; }
 .result-tools { justify-content: space-between; }
+.live-bar { display: flex; align-items: center; gap: 10px; margin: 10px 6px 0; }
+.live-bar small { color: var(--subtle); font-size: .74rem; line-height: 1.35; }
+.live-toggle {
+  display: inline-flex; align-items: center; gap: 8px; flex: none; min-height: 44px; padding: 0 16px 0 12px;
+  border-radius: 22px; border: 1.5px solid var(--accent); color: var(--accent); font-weight: 650; font-size: .87rem;
+}
+.live-toggle[aria-pressed="true"] { background: var(--record); border-color: var(--record); color: var(--record-ink); }
+.live-toggle:disabled { opacity: .5; }
+.live-panel { margin-top: 10px; padding: 12px 15px; }
+.live-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .82rem; }
+.live-status #liveQueue { margin-left: auto; color: var(--subtle); font-size: .75rem; }
+.live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--subtle); flex: none; }
+.live-dot[data-state="speech"] { background: var(--record); box-shadow: 0 0 0 4px var(--record-halo); }
+.live-dot[data-state="listening"] { background: var(--status-ready); }
+.live-feed { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-height: 55vh; overflow-y: auto; }
+.live-item { border-top: 1px solid var(--divider); padding-top: 9px; overflow-wrap: anywhere; }
+.live-item time, .journal-item time { display: block; color: var(--subtle); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.live-item .src, .journal-item .src { color: var(--muted); font-size: .88rem; margin-top: 2px; }
+.live-item .dst, .journal-item .dst { font-size: 1.12rem; line-height: 1.35; margin-top: 3px; }
+.live-item.error { color: var(--message); font-size: .82rem; }
+.journal-note { color: var(--muted); font-size: .82rem; line-height: 1.45; margin: 4px 0; }
+.journal-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 4px; }
+.journal-actions .primary { gap: 7px; }
+.journal-actions .primary .ico { width: 18px; height: 18px; }
+.journal-day { color: var(--accent); font-size: .8rem; font-weight: 650; margin: 14px 0 2px; text-transform: none; }
+.journal-item { border-top: 1px solid var(--divider); padding: 9px 0; overflow-wrap: anywhere; }
+.journal-item .dst { font-size: 1rem; }
 .timing { margin: 8px 6px 0; color: var(--muted); font-size: .75rem; line-height: 1.45; font-variant-numeric: tabular-nums; }
 .timing small { display: block; color: var(--subtle); font-size: .7rem; }
 .listen { margin-left: -6px; }
@@ -187,7 +214,7 @@ h2 { font-size: 1.125rem; font-weight: 650; letter-spacing: -.02em; line-height:
 .search input { background: none; border: 0; outline: 0; width: 100%; min-width: 0; height: 44px; }
 .nav {
   position: fixed; z-index: 2; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 610px; width: min(100%, 610px); display: grid; grid-template-columns: repeat(2,minmax(0,1fr));
+  width: 100%; max-width: 610px; width: min(100%, 610px); display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
   background: var(--surface); border-top: 1px solid var(--divider); gap: 6px; padding: 5px 9px; padding: 5px 9px calc(5px + env(safe-area-inset-bottom));
 }
 .nav button {
@@ -314,6 +341,14 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
           </div>
         </div>
       </section>
+      <div class="live-bar">
+        <button type="button" class="live-toggle" id="live" aria-pressed="false"><i data-i="live"></i><span id="liveLabel">Непрерывный перевод</span></button>
+        <small id="liveHint">Одно нажатие: приложение само записывает фразу за фразой и переводит каждую.</small>
+      </div>
+      <section id="livePanel" class="live-panel surface" aria-live="polite" hidden>
+        <div class="live-status"><span class="live-dot" id="liveDot"></span><span id="liveStatus">Слушаю…</span><span id="liveQueue"></span></div>
+        <div class="live-feed" id="liveFeed"></div>
+      </section>
       <p id="timing" class="timing" hidden></p>
       <p id="message" class="message" role="status" hidden></p>
       <div id="voiceReview" class="review surface" hidden><span>Ваша запись</span><audio controls id="recorded" preload="metadata" aria-label="Прослушать свою запись"></audio><button type="button" class="linkbtn" id="discard">Удалить запись</button></div>
@@ -324,10 +359,23 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
       <div class="phrase-list" id="collectionList"></div>
       <p class="empty" id="empty" hidden></p>
     </section>
+    <section id="journal" class="surface collection" aria-labelledby="journalTitle" hidden>
+      <div class="sec-head"><h2 id="journalTitle">Журнал</h2><button type="button" class="linkbtn" id="journalBack"><i data-i="west"></i>К переводу</button></div>
+      <p class="journal-note">Здесь сохраняются все переведённые фразы с датой и временем. Журнал хранится только на этом телефоне.</p>
+      <label class="search"><i data-i="search"></i><input id="journalFilter" type="search" placeholder="Найти в журнале" aria-label="Найти в журнале"></label>
+      <div class="journal-actions">
+        <button type="button" class="primary" id="journalExport"><i data-i="download"></i>Сохранить в файл</button>
+        <button type="button" class="linkbtn" id="journalClear">Очистить журнал</button>
+      </div>
+      <p id="journalStatus" class="message" role="status" hidden></p>
+      <div class="journal-list" id="journalList"></div>
+      <p class="empty" id="journalEmpty" hidden></p>
+    </section>
   </main>
   <nav class="nav" aria-label="Разделы">
     <button type="button" data-view="translate" aria-current="page"><i data-i="text"></i><span>Перевод</span></button>
     <button type="button" data-view="saved"><i data-i="bookmark"></i><span>Избранное</span></button>
+    <button type="button" data-view="journal"><i data-i="history"></i><span>Журнал</span></button>
   </nav>
 </div>
 <dialog id="dialog" aria-labelledby="modalTitle">
@@ -617,7 +665,10 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     moon: '<path d="M20.8 14.1A9 9 0 0 1 9.9 3.2 9 9 0 1 0 20.8 14.1Z"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M19 5l-1.5 1.5m-11 11L5 19"/>',
     system: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M9 21h6m-3-4v4"/>',
-    stop: '<rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" stroke="none"/>'
+    stop: '<rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor" stroke="none"/>',
+    history: '<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3 4v4.5h4.5M12 7.5V12l3 2"/>',
+    live: '<path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM6 11a6 6 0 0 0 12 0M12 17v4M3 8.5a10 10 0 0 0 0 5M21 8.5a10 10 0 0 1 0 5"/>',
+    download: '<path d="M12 3v12m-5-5 5 5 5-5M4 20h16"/>'
   };
   function icon(k) {
     return '<svg aria-hidden="true" focusable="false" class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round">' + paths[k] + '</svg>';
@@ -724,13 +775,15 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
   function equal(a, b) {
     return a.ru === b.ru && a.sn === b.sn;
   }
+  let liveJob = null;
   function controls() {
-    const voiceBusy = phase !== 'idle',
+    const voiceBusy = phase !== 'idle' || !!liveJob,
       val = $('input').value;
     $('translate').disabled = !val.trim() || voiceBusy || pending;
     $('translate').textContent = pending ? 'Обработка…' : 'Перевести';
     $('input').readOnly = voiceBusy;
-    $('mic').disabled = phase === 'finishing' || pending;
+    $('mic').disabled = phase === 'finishing' || pending || !!liveJob;
+    $('live').disabled = !liveJob && (phase !== 'idle' || pending);
     for (const id of ['srcLang', 'dstLang', 'swap']) $(id).disabled = voiceBusy;
     $('copy').disabled = $('save').disabled = $('listen').disabled = !result || voiceBusy || pending;
     $('clear').disabled = !val || voiceBusy;
@@ -954,6 +1007,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
       if (id !== epoch) return;
       if (!((_translated = translated) !== null && _translated !== void 0 && _translated.trim())) throw Error('Модель вернула пустой перевод. Попробуйте уточнить формулировку.');
       setResult(translated);
+      if (device && device.journal) device.journal.add(from, dest(), text, translated, voiceDraft ? 'voice' : 'text');
       const numbersDiffer = numberSequence(text) !== numberSequence(translated);
       if (numbersDiffer) message('Запись чисел в переводе отличается от исходной. Сверьте суммы, даты и номера.');
       if (voiceDraft && $('autoSpeak').checked && !numbersDiffer) listen();
@@ -1003,16 +1057,22 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     speechStop();
     message();
     $('translator').hidden = v !== 'translate';
-    $('collection').hidden = v === 'translate';
+    $('collection').hidden = v !== 'saved';
+    $('journal').hidden = v !== 'journal';
     const names = {
       translate: 'Перевод',
-      saved: 'Избранное'
+      saved: 'Избранное',
+      journal: 'Журнал'
     };
     document.title = 'Shona Voice · ' + names[v];
     document.querySelectorAll('.nav [data-view]').forEach(n => {
       if (n.dataset.view === v) n.setAttribute('aria-current', 'page');else n.removeAttribute('aria-current');
     });
-    if (v !== 'translate') {
+    if (v === 'journal') {
+      $('journalFilter').value = '';
+      $('journalStatus').hidden = true;
+      renderJournal();
+    } else if (v !== 'translate') {
       $('collectionTitle').textContent = names[v];
       $('filter').value = '';
       renderCollection();
@@ -1021,7 +1081,168 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     controls();
   }
   document.querySelectorAll('[data-view]').forEach(n => n.onclick = () => changeView(n.dataset.view));
-  $('home').onclick = $('back').onclick = () => changeView('translate');
+  $('home').onclick = $('back').onclick = $('journalBack').onclick = () => changeView('translate');
+
+  // Journal of every translated phrase, kept by the Android app in its own storage.
+  const two = n => String(n).padStart(2, '0');
+  const clock = d => two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds());
+  const modeNames = {
+    text: 'текст',
+    voice: 'голос',
+    live: 'непрерывный'
+  };
+  function renderJournal() {
+    const search = key($('journalFilter').value);
+    const entries = (device && device.journal ? device.journal.read() : []).filter(e => e && typeof e.source === 'string' && typeof e.translation === 'string' && (!search || key(e.source).includes(search) || key(e.translation).includes(search)));
+    const list = $('journalList');
+    list.replaceChildren();
+    let day = '';
+    for (const e of entries) {
+      const d = new Date(e.at);
+      const label = d.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      if (label !== day) {
+        day = label;
+        const h = document.createElement('h3');
+        h.className = 'journal-day';
+        h.textContent = label;
+        list.append(h);
+      }
+      const item = document.createElement('div');
+      item.className = 'journal-item';
+      const time = document.createElement('time'),
+        src = document.createElement('div'),
+        dst = document.createElement('div');
+      time.textContent = clock(d) + ' · ' + (langs[e.from] || e.from) + ' → ' + (langs[e.to] || e.to) + ' · ' + (modeNames[e.mode] || e.mode);
+      src.className = 'src';
+      src.textContent = e.source;
+      src.lang = e.from;
+      dst.className = 'dst';
+      dst.textContent = e.translation;
+      dst.lang = e.to;
+      item.append(time, src, dst);
+      list.append(item);
+    }
+    $('journalEmpty').textContent = search ? 'Совпадений нет.' : device ? 'Журнал пока пуст. Здесь появится каждая переведённая фраза.' : 'Журнал доступен в приложении на Android.';
+    $('journalEmpty').hidden = list.childElementCount > 0;
+    $('journalExport').disabled = !entries.length;
+  }
+  $('journalFilter').oninput = renderJournal;
+  $('journalExport').onclick = () => {
+    if (!device || !device.journal) return;
+    $('journalStatus').textContent = device.journal.exportFile();
+    $('journalStatus').hidden = false;
+  };
+  let clearArmed = 0;
+  $('journalClear').onclick = () => {
+    if (!device || !device.journal) return;
+    if (Date.now() - clearArmed > 4000) {
+      clearArmed = Date.now();
+      $('journalStatus').textContent = 'Нажмите «Очистить журнал» ещё раз, чтобы удалить все записи.';
+      $('journalStatus').hidden = false;
+      return;
+    }
+    clearArmed = 0;
+    device.journal.clear();
+    $('journalStatus').textContent = 'Журнал очищен.';
+    renderJournal();
+  };
+
+  // Continuous translation: one tap, then phrase after phrase until stopped.
+  const liveStates = {
+    listening: 'Слушаю…',
+    speech: 'Идёт речь…',
+    stopping: 'Завершаю последнюю фразу…'
+  };
+  function liveItem(className, build) {
+    const item = document.createElement('div');
+    item.className = className;
+    build(item);
+    $('liveFeed').append(item);
+    $('liveFeed').scrollTop = $('liveFeed').scrollHeight;
+  }
+  function liveUi(active) {
+    $('live').setAttribute('aria-pressed', String(active));
+    $('liveLabel').textContent = active ? 'Остановить' : 'Непрерывный перевод';
+    $('liveHint').hidden = active;
+    controls();
+  }
+  $('live').onclick = () => {
+    if (liveJob) {
+      liveJob.stop();
+      $('live').disabled = true;
+      return;
+    }
+    if (!device || typeof device.live !== 'function') {
+      message('Непрерывный перевод работает в приложении на Android.');
+      return;
+    }
+    if (!cap.asr) {
+      openModal(false, true);
+      return;
+    }
+    invalidate();
+    voice.cancel();
+    speechStop();
+    message();
+    $('liveFeed').replaceChildren();
+    $('livePanel').hidden = false;
+    $('liveStatus').textContent = 'Включаю микрофон…';
+    $('liveQueue').textContent = '';
+    $('liveDot').dataset.state = '';
+    const src = from,
+      dst = dest();
+    const job = device.live(src, dst, (type, value) => {
+      if (type === 'live-state') {
+        $('liveStatus').textContent = liveStates[value] || value;
+        $('liveDot').dataset.state = value;
+      } else if (type === 'live-queue') {
+        const n = Number(value) || 0;
+        $('liveQueue').textContent = n ? 'в обработке: ' + n : '';
+      } else if (type === 'live') {
+        let e;
+        try {
+          e = JSON.parse(value);
+        } catch (_unused) {
+          return;
+        }
+        liveItem('live-item', item => {
+          const time = document.createElement('time'),
+            a = document.createElement('div'),
+            b = document.createElement('div');
+          time.textContent = clock(new Date(e.at)) + ' · фраза ' + seconds(e.seconds * 1000) + ' · распознавание ' + seconds(e.asrMs) + ' · перевод ' + seconds(e.mtMs);
+          a.className = 'src';
+          a.lang = src;
+          a.textContent = e.source;
+          b.className = 'dst';
+          b.lang = dst;
+          b.textContent = e.translation;
+          item.append(time, a, b);
+        });
+        $('input').value = e.source;
+        setResult(e.translation);
+      } else if (type === 'live-error') {
+        liveItem('live-item error', item => {
+          item.textContent = value;
+        });
+      }
+    });
+    liveJob = job;
+    liveUi(true);
+    job.promise.catch(error => {
+      if (error.name !== 'AbortError') message(error.message);
+    }).finally(() => {
+      if (liveJob !== job) return;
+      liveJob = null;
+      $('liveStatus').textContent = 'Остановлено. Все фразы сохранены в журнале.';
+      $('liveDot').dataset.state = '';
+      $('liveQueue').textContent = '';
+      liveUi(false);
+    });
+  };
   $('filter').oninput = renderCollection;
   $('save').onclick = () => {
     if (!result) return;

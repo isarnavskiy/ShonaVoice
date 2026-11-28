@@ -10,7 +10,36 @@ import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
 class VoiceRecorder {
-    companion object { const val MAX_SECONDS = 30 }
+    companion object {
+        const val MAX_SECONDS = 30
+
+        @SuppressLint("MissingPermission")
+        internal fun openMicrophone(): AudioRecord {
+            // Omitting the rate allows Android to pick the route default. Some OEMs
+            // require an explicit one. Always use sampleRate from the opened recorder.
+            for (requested in intArrayOf(0, 48_000, 44_100, 16_000)) {
+                val format = AudioFormat.Builder()
+                    .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                if (requested > 0) format.setSampleRate(requested)
+                val mic = try {
+                    AudioRecord.Builder()
+                        .setAudioSource(MediaRecorder.AudioSource.MIC)
+                        .setAudioFormat(format.build())
+                        .build()
+                } catch (_: IllegalArgumentException) {
+                    continue
+                } catch (_: UnsupportedOperationException) {
+                    continue
+                }
+                if (mic.state == AudioRecord.STATE_INITIALIZED && mic.sampleRate in 8_000..192_000 && mic.channelCount == 1) {
+                    return mic
+                }
+                mic.release()
+            }
+            error("Не удалось открыть микрофон в режиме моно PCM16.")
+        }
+    }
 
     private class Capture {
         @Volatile var stopAtNanos = Long.MAX_VALUE
@@ -118,32 +147,5 @@ class VoiceRecorder {
                 mic.release()
             }
         }
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun openMicrophone(): AudioRecord {
-        // Omitting the rate allows Android to pick the route default. Some OEMs
-        // require an explicit one. Always use sampleRate from the opened recorder.
-        for (requested in intArrayOf(0, 48_000, 44_100, 16_000)) {
-            val format = AudioFormat.Builder()
-                .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            if (requested > 0) format.setSampleRate(requested)
-            val mic = try {
-                AudioRecord.Builder()
-                    .setAudioSource(MediaRecorder.AudioSource.MIC)
-                    .setAudioFormat(format.build())
-                    .build()
-            } catch (_: IllegalArgumentException) {
-                continue
-            } catch (_: UnsupportedOperationException) {
-                continue
-            }
-            if (mic.state == AudioRecord.STATE_INITIALIZED && mic.sampleRate in 8_000..192_000 && mic.channelCount == 1) {
-                return mic
-            }
-            mic.release()
-        }
-        error("Не удалось открыть микрофон в режиме моно PCM16.")
     }
 }

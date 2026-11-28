@@ -39,6 +39,13 @@ internal class DeviceBridge(private val activity: MainActivity) {
     @JavascriptInterface fun record(id: Int, lang: String) =
         activity.runOnUiThread { activity.record(id, lang) }
     @JavascriptInterface fun finish(id: Int) = activity.runOnUiThread { activity.finishRecording(id) }
+    @JavascriptInterface fun live(id: Int, from: String, to: String) =
+        activity.runOnUiThread { activity.live(id, from, to) }
+    @JavascriptInterface fun journalAdd(from: String, to: String, source: String, translation: String, mode: String) =
+        activity.journal.add(System.currentTimeMillis(), from, to, source, translation, mode)
+    @JavascriptInterface fun journalRead(): String = activity.journal.read().toString()
+    @JavascriptInterface fun journalClear() = activity.journal.clear()
+    @JavascriptInterface fun journalExport(): String = activity.exportJournal()
     @JavascriptInterface fun cancel(id: Int) = activity.runOnUiThread { activity.cancel(id) }
     @JavascriptInterface fun setFastTranslation(enabled: Boolean) { MainActivity.fastTranslation = enabled }
     @JavascriptInterface fun prepare(from: String, to: String, voiceId: String) =
@@ -65,6 +72,8 @@ class MainActivity : Activity() {
         var capturing = false
         /** Start of the measured step. Voice input restarts it when the recording is handed over. */
         @Volatile var measuredFrom = 0L
+        var liveTarget: String? = null
+        var live: LiveCapture? = null
     }
 
     private lateinit var screen: ConversationScreen
@@ -73,6 +82,7 @@ class MainActivity : Activity() {
     private var foreground = false
     private var permissionOp: Operation? = null
     private var nextPreparation: Triple<String, String, String>? = null
+    internal val journal by lazy { TranslationJournal(File(filesDir, "journal.jsonl")) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -157,6 +167,7 @@ class MainActivity : Activity() {
         if (active !== op) return
         active = null
         if (op.capturing) recorder.cancel()
+        op.live?.cancel()
         if (message != null) {
             op.cancelled = true
             op.finishedRecording.cancel(false)
@@ -309,7 +320,9 @@ class MainActivity : Activity() {
         val op = permissionOp
         permissionOp = null
         if (op == null || active !== op) return
-        if (results.firstOrNull() == PackageManager.PERMISSION_GRANTED && foreground) beginRecording(op)
+        if (results.firstOrNull() == PackageManager.PERMISSION_GRANTED && foreground) {
+            if (op.liveTarget != null) beginLive(op) else beginRecording(op)
+        }
         else end(op, "Разрешите доступ к микрофону в настройках приложения.")
     }
 
@@ -341,6 +354,14 @@ class MainActivity : Activity() {
 
     internal fun finishRecording(id: Int) {
         val op = active?.takeIf { it.id == id && it.inputLanguage != null } ?: return
+        if (op.liveTarget != null) {
+            val live = op.live
+            if (live == null) end(op, "Непрерывный перевод остановлен.") else {
+                live.stop()
+                screen.send(id, "live-state", "stopping")
+            }
+            return
+        }
         if (!op.capturing) {
             if (permissionOp === op) end(op, "После разрешения доступа нажмите микрофон ещё раз.")
             return
@@ -349,6 +370,126 @@ class MainActivity : Activity() {
         op.capturing = false
         screen.send(id, "finishing")
         op.finishedRecording.complete(capture)
+    }
+
+    /**
+     * Hands-free translation: one tap keeps the microphone open, every phrase is recognized and
+     * translated while the next one is being recorded, and each result is added to the journal.
+     */
+    internal fun live(id: Int, from: String, to: String) {
+        val op = newOperation(id) ?: return
+        val src = runCatching { language(from) }.getOrNull()
+        val dst = runCatching { language(to) }.getOrNull()
+        if (src == null || dst == null || src == dst) { end(op, "Неизвестное направление перевода."); return }
+        op.inputLanguage = src
+        op.liveTarget = dst
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            if (permissionOp == null) {
+                permissionOp = op
+                requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_PERMISSION)
+            } else end(op, "Подтвердите разрешение и снова включите непрерывный перевод.")
+        } else beginLive(op)
+    }
+
+    private fun beginLive(op: Operation) {
+        val path = try { models() } catch (e: Exception) { end(op, e.localizedMessage ?: "Модели недоступны."); return }
+        val src = op.inputLanguage!!
+        val dst = op.liveTarget!!
+        val pending = AtomicInteger()
+        val capture = LiveCapture(
+            onSegment = { pcm, rate -> processSegment(op, path, src, dst, pcm, rate, pending) },
+            onSpeech = { speaking ->
+                runOnUiThread { if (active === op) screen.send(op.id, "live-state", if (speaking) "speech" else "listening") }
+            },
+            onClosed = { failure ->
+                // Runs after the last phrase was queued; the worker finishes it first.
+                worker.execute {
+                    runOnUiThread {
+                        if (failure != null) end(op, failure.localizedMessage ?: "Микрофон недоступен.")
+                        else end(op, value = "")
+                    }
+                }
+            }
+        )
+        op.live = capture
+        capture.start()
+        screen.send(op.id, "live-state", "listening")
+        // Load both models while the first phrase is being spoken.
+        worker.execute {
+            runCatching {
+                if (!op.cancelled) Nllb(path).warm(src, dst, beam = !fastTranslation)
+                if (!op.cancelled) MmsAsr(path).warm(src)
+            }
+        }
+    }
+
+    private fun processSegment(op: Operation, path: File, src: String, dst: String, pcm: ShortArray, rate: Int,
+                               pending: AtomicInteger) {
+        pending.incrementAndGet()
+        runOnUiThread { if (active === op) screen.send(op.id, "live-queue", pending.get().toString()) }
+        worker.execute {
+            try {
+                if (op.cancelled) return@execute
+                ModelCache.takeLoadMillis()
+                val started = SystemClock.elapsedRealtime()
+                val audio = Resampler.to16k(pcm, pcm.size, rate)
+                val text = MmsAsr(path).transcribe(src) { audio }.trim()
+                val recognized = SystemClock.elapsedRealtime()
+                if (text.isEmpty() || op.cancelled) return@execute
+                val translation = Nllb(path).translate(text, src, dst, beam = !fastTranslation).trim()
+                val done = SystemClock.elapsedRealtime()
+                val at = System.currentTimeMillis()
+                journal.add(at, code(src), code(dst), text, translation, "live")
+                val event = JSONObject().put("source", text).put("translation", translation).put("at", at)
+                    .put("seconds", audio.size / 16_000.0).put("asrMs", recognized - started)
+                    .put("mtMs", done - recognized).put("loadMs", ModelCache.takeLoadMillis()).toString()
+                runOnUiThread { if (active === op) screen.send(op.id, "live", event) }
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            } catch (e: Exception) {
+                val text = e.localizedMessage?.lineSequence()?.firstOrNull()?.take(200) ?: "Фрагмент не обработан."
+                runOnUiThread { if (active === op) screen.send(op.id, "live-error", text) }
+            } catch (e: OutOfMemoryError) {
+                ModelCache.clear()
+                runOnUiThread { if (active === op) screen.send(op.id, "live-error", "Недостаточно памяти для фрагмента.") }
+            } finally {
+                val left = pending.decrementAndGet()
+                runOnUiThread { if (active === op) screen.send(op.id, "live-queue", left.toString()) }
+            }
+        }
+    }
+
+    private fun code(lang: String) = if (lang == "rus") "ru" else "sn"
+
+    /** Saves the journal as a text file in Downloads/ShonaVoice. Returns a message for the user. */
+    internal fun exportJournal(): String {
+        val text = journal.exportText()
+        val name = "ShonaVoice-journal-" + java.text.SimpleDateFormat("yyyy-MM-dd-HHmm", java.util.Locale.ROOT)
+            .format(java.util.Date()) + ".txt"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            return try {
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Download/ShonaVoice")
+                }
+                val uri = checkNotNull(contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
+                checkNotNull(contentResolver.openOutputStream(uri)).use { it.write(text.toByteArray(Charsets.UTF_8)) }
+                "Журнал сохранён: Загрузки/ShonaVoice/$name"
+            } catch (e: Exception) {
+                shareText(text)
+                "Не удалось сохранить файл, открываю «Поделиться»."
+            }
+        }
+        shareText(text)
+        return "Выберите, куда отправить журнал."
+    }
+
+    private fun shareText(text: String) = runOnUiThread {
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(android.content.Intent.EXTRA_SUBJECT, "Журнал переводов Shona Voice")
+            .putExtra(android.content.Intent.EXTRA_TEXT, text.take(400_000))
+        startActivity(android.content.Intent.createChooser(intent, "Журнал переводов"))
     }
 
     /** In-memory preview of the resampled recording. The recognizer additionally trims long silence at its ends. */
