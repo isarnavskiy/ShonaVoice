@@ -1,0 +1,37 @@
+name: NLLB benchmark
+
+# Measures translation speed and output of the shipped NLLB graphs with ONNX Runtime 1.22.0
+# (the app's version) at BASIC and EXTENDED graph optimization. Report only.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/bench_nllb.py'
+      - '.github/workflows/bench-nllb.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Extract models from the v1.0.4 release APK
+        run: |
+          mkdir -p "$RUNNER_TEMP/source"
+          gh release download v1.0.4 --repo "$GITHUB_REPOSITORY" --pattern ShonaVoice-Offline.apk --dir "$RUNNER_TEMP/source"
+          python tools/prepare_models.py --apk "$RUNNER_TEMP/source/ShonaVoice-Offline.apk"
+          rm -rf "$RUNNER_TEMP/source"
+      - name: Benchmark
+        run: |
+          pip install --quiet onnxruntime==1.22.0 sentencepiece numpy
+          nproc
+          python tools/bench_nllb.py model-assets/embedded_models
