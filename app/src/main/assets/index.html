@@ -140,9 +140,17 @@ main { flex: 1; padding: 0 9px 87px; padding: 0 9px calc(87px + env(safe-area-in
 }
 .primary:disabled { background: var(--button-disabled); color: var(--button-disabled-ink); }
 .translate { min-height: 37px; }
-.mic { margin-left: 3px; touch-action: none; user-select: none; }
-.mic[data-phase="recording"] { color: var(--record-ink); background: var(--record); animation: pulse 1.55s ease-out infinite; }
-@keyframes pulse { from { box-shadow: 0 0 0 0 var(--record-halo); } 70%, to { box-shadow: 0 0 0 6px transparent; } }
+/* Voice is the main way to translate in a conversation: a large round button that is easy to hold. */
+.mic {
+  margin-left: 6px; touch-action: none; user-select: none;
+  width: 52px; height: 52px; flex: 0 0 52px; border-radius: 50%;
+  color: var(--accent-text); background: var(--accent);
+}
+.mic .ico { width: 26px; height: 26px; }
+.mic:disabled { color: var(--button-disabled-ink); background: var(--button-disabled); }
+.mic[data-phase="recording"] { color: var(--record-ink); background: var(--record); transform: scale(1.08); animation: pulse 1.55s ease-out infinite; }
+.mic[data-phase="finishing"], .mic[data-phase="requesting"] { opacity: .75; }
+@keyframes pulse { from { box-shadow: 0 0 0 0 var(--record-halo); } 70%, to { box-shadow: 0 0 0 12px transparent; } }
 .result-area { border-top: 1px solid var(--divider); background: var(--result); border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); }
 #output { min-height: 83px; max-height: 36vh; min-height: clamp(83px, 14.5vh, 123px); padding-right: 7px; max-height: 36dvh; overflow-y: auto; white-space: pre-wrap; }
 .result-tools { justify-content: space-between; }
@@ -255,7 +263,8 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
 @media (hover: hover) {
   .icon:enabled:hover, .nav button:hover, .languagebar select:enabled:hover { background: var(--tint); }
   .primary:enabled:hover { background: var(--accent-hover); }
-  .mic[data-phase="recording"]:hover { background: var(--record-hover); }
+  .icon.mic:enabled:hover { background: var(--accent-hover); }
+  .mic[data-phase="recording"]:hover, .icon.mic[data-phase="recording"]:enabled:hover { background: var(--record-hover); }
   .linkbtn:enabled:hover, .phrase-list button:hover { color: var(--link-hover); }
 }
 @media (prefers-reduced-motion: reduce) { .mic[data-phase="recording"] { animation: none; } }
