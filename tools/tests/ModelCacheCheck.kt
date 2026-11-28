@@ -65,7 +65,7 @@ fun main(args: Array<String>) {
     check(ModelCache.budgetFor(4 * gb) in 1_400L * 1024 * 1024..1_700L * 1024 * 1024)
     check(ModelCache.budgetFor(5_500L * 1024 * 1024) >= 2_200L * 1024 * 1024)
     check(ModelCache.budgetFor(2 * gb) in 0L..500L * 1024 * 1024)
-    check(ModelCache.budgetFor(16 * gb) == 3_500L * 1024 * 1024)
-    check(ModelCache.threads() in 2..4)
+    check(ModelCache.budgetFor(16 * gb) == 5_000L * 1024 * 1024)
+    check(ModelCache.threads() in 2..6)
     println("ModelCache checks passed")
 }

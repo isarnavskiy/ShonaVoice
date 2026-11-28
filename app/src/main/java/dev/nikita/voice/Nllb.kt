@@ -339,11 +339,14 @@ class Nllb(modelRoot: File) {
     private fun OrtSession.Result.tensor(name: String): OnnxTensor = get(name).get() as OnnxTensor
 
     private fun configure(options: OrtSession.SessionOptions) {
-        options.setIntraOpNumThreads(minOf(4, Runtime.getRuntime().availableProcessors()))
+        options.setIntraOpNumThreads(ModelCache.threads())
         options.setInterOpNumThreads(1)
         options.setMemoryPatternOptimization(false)
         options.setCPUArenaAllocator(false)
-        options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.BASIC_OPT)
+        // EXTENDED fuses the dynamically quantized MatMul chains (DynamicQuantizeLinear + MatMulInteger
+        // + scale) into one MatMulIntegerToFloat kernel, which BASIC leaves as separate operators.
+        // The session stays cached, so its longer one-time optimization is paid once per launch.
+        options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.EXTENDED_OPT)
     }
 
     // Kept loaded between requests: reading the 419 MB encoder and 476 MB decoder dominated short translations.

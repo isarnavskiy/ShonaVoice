@@ -38,12 +38,30 @@ internal object ModelCache {
     /** Returns true when the system reports low memory; cached idle models are then released first. */
     @Volatile var memoryLow: () -> Boolean = { false }
 
-    /** Intra-op threads for the heavier graphs: half of the cores, between 2 and 4. */
-    fun threads(): Int = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 4)
+    /**
+     * Intra-op threads for the heavier graphs: the phone's performance cores (those within 70 % of
+     * the fastest core's maximum clock), between 2 and 6. Efficiency cores would slow every step,
+     * because each matrix product waits for its slowest thread.
+     */
+    fun threads(): Int = performanceCores
+
+    private val performanceCores: Int by lazy {
+        val cpus = Runtime.getRuntime().availableProcessors()
+        val clocks = (0 until cpus).mapNotNull { cpu ->
+            runCatching {
+                File("/sys/devices/system/cpu/cpu$cpu/cpufreq/cpuinfo_max_freq").readText().trim().toLong()
+            }.getOrNull()
+        }
+        val fast = if (clocks.size == cpus && clocks.isNotEmpty()) {
+            val top = clocks.max()
+            clocks.count { it * 10 >= top * 7 }
+        } else cpus / 2
+        fast.coerceIn(2, 6)
+    }
 
     /** Budget for a phone with [totalBytes] of RAM. On 6 GB it holds a whole voice turn (about 2.1 GB). */
     fun budgetFor(totalBytes: Long): Long =
-        (totalBytes * 55 / 100 - 700L * MB).coerceIn(0L, 3_500L * MB)
+        (totalBytes * 55 / 100 - 700L * MB).coerceIn(0L, 5_000L * MB)
 
     /** Size on disk of a graph plus the external weight files stored beside it. */
     fun weightBytes(graph: File, vararg external: File): Long = graph.length() + external.sumOf { it.length() }

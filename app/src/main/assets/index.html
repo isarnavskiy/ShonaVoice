@@ -154,13 +154,16 @@ main { flex: 1; padding: 0 9px 87px; padding: 0 9px calc(87px + env(safe-area-in
 .result-area { border-top: 1px solid var(--divider); background: var(--result); border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); }
 #output { min-height: 83px; max-height: 36vh; min-height: clamp(83px, 14.5vh, 123px); padding-right: 7px; max-height: 36dvh; overflow-y: auto; white-space: pre-wrap; }
 .result-tools { justify-content: space-between; }
-.live-bar { display: flex; align-items: center; gap: 10px; margin: 10px 6px 0; }
-.live-bar small { color: var(--subtle); font-size: .74rem; line-height: 1.35; }
+/* Hands-free mode: a full-width pill under the translator, same accent and shape language as the mic. */
+.live-bar { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 12px 0 0; }
+.live-bar small { color: var(--subtle); font-size: .76rem; line-height: 1.35; text-align: center; }
 .live-toggle {
-  display: inline-flex; align-items: center; gap: 8px; flex: none; min-height: 44px; padding: 0 16px 0 12px;
-  border-radius: 22px; border: 1.5px solid var(--accent); color: var(--accent); font-weight: 650; font-size: .87rem;
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 54px; padding: 0 18px;
+  border-radius: 27px; background: var(--tint); border: 1.5px solid var(--accent); color: var(--accent);
+  font-weight: 670; font-size: .95rem;
 }
-.live-toggle[aria-pressed="true"] { background: var(--record); border-color: var(--record); color: var(--record-ink); }
+.live-toggle .ico { width: 22px; height: 22px; }
+.live-toggle[aria-pressed="true"] { background: var(--record); border-color: var(--record); color: var(--record-ink); animation: pulse 1.55s ease-out infinite; }
 .live-toggle:disabled { opacity: .5; }
 .live-panel { margin-top: 10px; padding: 12px 15px; }
 .live-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .82rem; }
@@ -296,7 +299,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
   .mic[data-phase="recording"]:hover, .icon.mic[data-phase="recording"]:enabled:hover { background: var(--record-hover); }
   .linkbtn:enabled:hover, .phrase-list button:hover { color: var(--link-hover); }
 }
-@media (prefers-reduced-motion: reduce) { .mic[data-phase="recording"] { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .mic[data-phase="recording"], .live-toggle[aria-pressed="true"] { animation: none; } }
 .models-credit { color: var(--muted); font-size: .86rem; line-height: 1.5; margin: 16px 0 8px; }
 .models-credit summary { cursor: pointer; font-weight: 600; }
 .models-credit p { margin: 6px 0; }
@@ -343,7 +346,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
       </section>
       <div class="live-bar">
         <button type="button" class="live-toggle" id="live" aria-pressed="false"><i data-i="live"></i><span id="liveLabel">Непрерывный перевод</span></button>
-        <small id="liveHint">Одно нажатие: приложение само записывает фразу за фразой и переводит каждую.</small>
+        <small id="liveHint">Говорите свободно: каждая фраза переведётся после паузы.</small>
       </div>
       <section id="livePanel" class="live-panel surface" aria-live="polite" hidden>
         <div class="live-status"><span class="live-dot" id="liveDot"></span><span id="liveStatus">Слушаю…</span><span id="liveQueue"></span></div>
@@ -1166,7 +1169,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
   }
   function liveUi(active) {
     $('live').setAttribute('aria-pressed', String(active));
-    $('liveLabel').textContent = active ? 'Остановить' : 'Непрерывный перевод';
+    $('liveLabel').textContent = active ? 'Остановить непрерывный перевод' : 'Непрерывный перевод';
     $('liveHint').hidden = active;
     controls();
   }

@@ -57,6 +57,13 @@ jobs:
           rm -rf "$RUNNER_TEMP/source"
           df -h /
 
+      - name: Benchmark NLLB optimization levels (report only)
+        continue-on-error: true
+        timeout-minutes: 20
+        run: |
+          pip install --quiet onnxruntime==1.22.0 sentencepiece numpy
+          python3 tools/bench_nllb.py model-assets/embedded_models
+
       - name: Build test APK
         run: ./gradlew --no-daemon :app:assembleDebug
 
