@@ -5,7 +5,7 @@
 **Карманный переводчик с русского на шона и обратно.** Можно написать фразу или произнести её, проверить распознанный текст и услышать перевод. Всё работает на телефоне, в том числе в авиарежиме.
 
 <p align="center">
-  <a href="https://github.com/isarnavskiy/ShonaVoice/releases/download/test-build/ShonaVoice-Test.apk"><img src="docs/images/download.svg" width="264" alt="Скачать Shona Voice 1.0.5, около 1,7 ГБ"></a>
+  <a href="https://github.com/isarnavskiy/ShonaVoice/releases/download/test-build/ShonaVoice-Test.apk"><img src="docs/images/download.svg" width="264" alt="Скачать Shona Voice 1.0.5, 1,72 ГБ"></a>
   <br>
   <sub>Версия 1.0.5 (тестовая) · Android 8.0+ · ARM64 · <a href="https://github.com/isarnavskiy/ShonaVoice/releases/download/v1.0.4/ShonaVoice-Offline.apk">стабильная 1.0.4</a></sub>
 </p>
