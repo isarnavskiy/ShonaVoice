@@ -343,10 +343,9 @@ class Nllb(modelRoot: File) {
         options.setInterOpNumThreads(1)
         options.setMemoryPatternOptimization(false)
         options.setCPUArenaAllocator(false)
-        // EXTENDED fuses the dynamically quantized MatMul chains (DynamicQuantizeLinear + MatMulInteger
-        // + scale) into one MatMulIntegerToFloat kernel, which BASIC leaves as separate operators.
-        // The session stays cached, so its longer one-time optimization is paid once per launch.
-        options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.EXTENDED_OPT)
+        // BASIC: tools/bench_nllb.py measured no gain from EXTENDED on ONNX Runtime 1.22.0
+        // (514 vs 515 ms per token), and EXTENDED changed one of six reference translations.
+        options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.BASIC_OPT)
     }
 
     // Kept loaded between requests: reading the 419 MB encoder and 476 MB decoder dominated short translations.
