@@ -7,7 +7,6 @@ import android.content.ComponentCallbacks2
 import android.content.pm.PackageManager
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -66,7 +65,7 @@ class MainActivity : Activity() {
         private val waiting = AtomicInteger()
         private var preparing = false // Read and written on the UI thread.
         /** One translation candidate instead of three into Shona. Set from the settings screen. */
-        @Volatile var fastTranslation = true
+        @Volatile var fastTranslation = false
     }
     private class Operation(val id: Int) {
         @Volatile var cancelled = false
@@ -416,9 +415,10 @@ class MainActivity : Activity() {
         if (op.speakLive) {
             op.headset = headsetConnected(audio)
             val player = LivePlayer { speaking ->
-                // Through the loudspeaker the microphone hears the translation too: only clearly
-                // louder live speech counts while it plays. Headphones keep full sensitivity.
-                capture?.setStrict(speaking && !op.headset)
+                // Through the loudspeaker the microphone hears the translation too, and echo
+                // cancellers leave enough of it to be recognized as speech. The microphone waits
+                // while the translation plays. Headphones keep it listening all the time.
+                capture?.setMuted(speaking && !op.headset)
                 runOnUiThread { if (active === op) screen.send(op.id, "live-voice", if (speaking) "1" else "0") }
             }
             op.player = player
@@ -429,7 +429,7 @@ class MainActivity : Activity() {
                 fun route() {
                     if (active !== op) return
                     op.headset = headsetConnected(audio)
-                    if (op.headset) capture?.setStrict(false)
+                    if (op.headset) capture?.setMuted(false)
                     screen.send(op.id, "live-route", if (op.headset) "headset" else "speaker")
                 }
             }
@@ -437,12 +437,8 @@ class MainActivity : Activity() {
             // Reports the current route immediately, then every change.
             audio.registerAudioDeviceCallback(callback, android.os.Handler(mainLooper))
         }
-        // Voice-communication capture enables the echo canceller when the translation plays aloud.
-        val source = if (op.speakLive && !op.headset) MediaRecorder.AudioSource.VOICE_COMMUNICATION
-            else MediaRecorder.AudioSource.MIC
         val builtIn = audio.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }
         capture = LiveCapture(
-            source = source,
             preferredInput = builtIn,
             onSegment = { pcm, rate -> processSegment(op, path, src, dst, pcm, rate, pending) },
             onSpeech = { speaking ->

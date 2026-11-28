@@ -10,7 +10,11 @@ import java.security.DigestOutputStream
 import java.security.MessageDigest
 import java.util.Base64
 
-/** Add probability outputs to the installed INT8 graph without downloading new weights. */
+/**
+ * Derive the decoder the app runs from the installed INT8 graph without downloading new weights:
+ * its output layer multiplies the INT8 vocabulary matrix directly instead of dequantizing it to
+ * float on every step, and it adds the beam-search probability outputs.
+ */
 internal object BeamDecoder {
     private data class Stamp(val path: String, val length: Long, val modified: Long)
     private var lastSource: Pair<Stamp, String>? = null
@@ -105,6 +109,9 @@ internal object BeamDecoder {
                 "Контрольная сумма декодера не совпала. Проверьте установленный комплект моделей."
             }
             Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            // Earlier app versions derived another 476 MB decoder. It is no longer used.
+            directory.listFiles { file -> file.name.matches(Regex("decoder-[0-9a-f]{16}\\.onnx")) && file != target }
+                ?.forEach { it.delete() }
             return target
         } finally {
             temporary.delete()

@@ -12,6 +12,9 @@ internal object SpeechFilter {
     fun plausible(text: String, lang: String, seconds: Double): Boolean {
         val letters = text.lowercase().filter { it.isLetter() }
         if (letters.length < 2) return false
+        // Letters of the other script mean the recognizer heard something else, often the app's own voice.
+        val foreign = if (lang == "sna") letters.count { it in 'а'..'я' || it == 'ё' } else letters.count { it in 'a'..'z' }
+        if (foreign > 0) return false
         val vowels = if (lang == "sna") shonaVowels else russianVowels
         if (letters.none { it in vowels }) return false
         val top = letters.groupingBy { it }.eachCount().values.max()

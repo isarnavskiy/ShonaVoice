@@ -42,26 +42,25 @@ fun main() {
     // Stopping in the middle of a phrase still delivers it.
     val stopped = run(noise(1.0), speech(2.0))
     check(stopped.size == 1 && stopped[0] >= 2.0) { "stopped $stopped" }
-    // While the app speaks through the loudspeaker, residual echo 20 dB above the room noise
-    // does not start a phrase, but a person speaking clearly louder still does.
-    fun scaled(part: ShortArray, gain: Double) = ShortArray(part.size) { (part[it] * gain).toInt().toShort() }
-    fun strictRun(vararg parts: ShortArray): List<Double> {
+    // While the app speaks through the loudspeaker the microphone is ignored: its echo never
+    // becomes a phrase, and a phrase in progress when the voice starts is delivered as it was.
+    fun mutedRun(mutedFrom: Double, mutedTo: Double, vararg parts: ShortArray): List<Double> {
         val out = mutableListOf<Double>()
         val segmenter = LiveSegmenter(rate, { out.add(it.size.toDouble() / rate) })
         val all = parts.fold(ShortArray(0)) { a, b -> a + b }
         var i = 0
-        // The app starts speaking after the first second; its echo arrives with output latency.
         while (i + segmenter.frame <= all.size) {
-            segmenter.strict = i >= parts[0].size - rate / 10
+            segmenter.muted = i >= mutedFrom * rate && i < mutedTo * rate
             segmenter.push(all, i)
             i += segmenter.frame
         }
         segmenter.flush()
         return out
     }
-    check(strictRun(noise(1.0), scaled(speech(4.0), 0.03), noise(1.0)).isEmpty()) { "echo started a phrase" }
-    check(strictRun(noise(1.0), scaled(speech(4.0), 0.12), noise(1.0)).isEmpty()) { "strong echo started a phrase" }
-    val over = strictRun(noise(1.0), scaled(speech(3.0), 0.03), speech(2.0), noise(1.0))
-    check(over.size == 1 && over[0] >= 2.0) { "loud speech over echo $over" }
+    check(mutedRun(1.0, 5.0, noise(1.0), speech(4.0), noise(1.0)).isEmpty()) { "echo became a phrase" }
+    val cut = mutedRun(2.0, 4.0, noise(1.0), speech(3.0), noise(2.0))
+    check(cut.size == 1 && cut[0] in 1.0..1.6) { "phrase at mute $cut" }
+    val after = mutedRun(1.0, 3.0, noise(1.0), speech(2.0), noise(0.5), speech(1.5), noise(1.0))
+    check(after.size == 1 && after[0] in 1.6..2.3) { "speech after mute $after" }
     println("LiveSegmenter checks passed")
 }

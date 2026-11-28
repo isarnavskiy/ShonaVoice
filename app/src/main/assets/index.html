@@ -442,7 +442,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
         <button type="button" class="linkbtn" id="previewShona">Прослушать пример</button>
         <p id="previewNotice" role="status" hidden></p>
       </div>
-      <label class="checkline"><span><strong>Быстрый перевод</strong><small>Один вариант перевода вместо сравнения трёх. Заметно быстрее, качество на шона может быть чуть ниже.</small></span><input type="checkbox" id="fastTranslation" checked></label>
+      <label class="checkline"><span><strong>Быстрый перевод</strong><small>Один вариант перевода на шона вместо сравнения трёх. Немного быстрее, но качество может быть ниже.</small></span><input type="checkbox" id="fastTranslation"></label>
       <label class="checkline"><span><strong>Показывать время обработки</strong><small>Технические подробности: сколько заняли распознавание, перевод и озвучивание.</small></span><input type="checkbox" id="showTimings"></label>
       <label class="checkline"><span><strong>Проверять текст после записи</strong><small>Можно исправить распознанные слова перед переводом.</small></span><input type="checkbox" id="reviewText"></label>
       <label class="checkline"><span><strong>Читать перевод вслух после записи</strong><small>Для введённого текста есть кнопка озвучивания.</small></span><input type="checkbox" id="autoSpeak" checked></label>
@@ -729,7 +729,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     }
   }
   for (const id of ['autoSpeak', 'reviewText', 'fastTranslation', 'showTimings']) {
-    $(id).checked = loadPreference(id, id !== 'reviewText' && id !== 'showTimings');
+    $(id).checked = loadPreference(id, id === 'autoSpeak');
     $(id).onchange = () => store(id, $(id).checked);
   }
   $('fastTranslation').addEventListener('change', () => prepareModels());
@@ -889,7 +889,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
   const stageNames = {
     record_and_asr: 'распознавание',
     translation: 'перевод',
-    tts: 'озвучивание'
+    tts: 'озвучивание вместе со звучанием'
   };
   let timings = {};
   const seconds = ms => (ms / 1000).toFixed(1).replace('.', ',') + ' с';
@@ -1204,7 +1204,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     voice: {
       start: 'Начать синхронный перевод',
       stop: 'Остановить перевод',
-      hint: 'Собеседник говорит, а приложение сразу озвучивает перевод каждой фразы. Лучше всего с наушниками.'
+      hint: 'Собеседник говорит, а приложение сразу озвучивает перевод каждой фразы. С наушниками можно говорить без пауз.'
     }
   };
   let liveMode = loadPreference('liveMode', 'text') === 'voice' ? 'voice' : 'text';
@@ -1313,7 +1313,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
         live.voice = value === '1';
       } else if (type === 'live-route') {
         const headset = value === 'headset';
-        $('liveRoute').textContent = headset ? 'Звук в наушниках' : 'Звук через динамик. С наушниками распознавание точнее.';
+        $('liveRoute').textContent = headset ? 'Звук в наушниках' : 'Через динамик микрофон ждёт, пока звучит перевод. С наушниками слушает без пауз.';
         $('liveRoute').dataset.warn = String(!headset);
       } else if (type === 'live') {
         let e;

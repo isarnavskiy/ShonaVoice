@@ -23,7 +23,7 @@ internal class LiveSegmenter(
     private val prerollFrames = 15
     private val tailFrames = 15
     private val startFrames = 3
-    private val minVoicedFrames = 15
+    private val minVoicedFrames = 20 // 0.4 s of speech: shorter fragments are mostly clicks or cut words.
 
     private val samples = ShortArray((maxFrames + prerollFrames + 2) * frame)
     private val levels = DoubleArray(maxFrames + prerollFrames + 2)
@@ -33,39 +33,31 @@ internal class LiveSegmenter(
     private var silence = 0
     private var run = 0
     private var floor = Double.NaN
-    private var echo = Double.NaN // Median level while the app speaks; NaN otherwise.
-    private var learning = 0
     private var speaking = false
 
     /**
-     * Set while the app's own voice plays through the loudspeaker. Only speech well above the
-     * residual echo then counts, so the translation is not recognized again as new input.
+     * Set while the app's own voice plays through the loudspeaker. The microphone input is then
+     * ignored, so the translation is never recognized again as new speech. A phrase in progress
+     * is delivered as it was before the voice started.
      */
-    @Volatile var strict = false
+    @Volatile var muted = false
 
     /** Accepts exactly [frame] samples. */
     fun push(chunk: ShortArray, offset: Int = 0) {
+        if (muted) {
+            if (inSegment) finish(frames - silence.coerceAtMost(frames) + minOf(silence, tailFrames))
+            frames = 0
+            run = 0
+            setSpeaking(false)
+            return
+        }
         val db = level(chunk, offset)
         floor = when {
             floor.isNaN() -> db
             db < floor -> db
             else -> floor + 0.05 // Rises 2.5 dB per second, so speech never becomes the floor.
         }
-        val threshold = if (strict) {
-            // Follow the median of the residual echo between phrases, so a phone with a weak echo
-            // canceller still needs clearly louder live speech than its own voice to start a phrase.
-            // Inside a phrase the estimate is frozen: the person's own speech is not echo.
-            // The first 300 ms only learn the echo level quickly; a phrase cannot start meanwhile.
-            if (echo.isNaN()) { echo = db; learning = 15 }
-            else if (!inSegment) echo += (if (db > echo) 1.0 else -1.0) * if (learning > 0) 1.5 else 0.4
-            if (learning > 0) learning--
-            maxOf(floor + 22.0, echo + 15.0)
-        } else {
-            echo = Double.NaN
-            learning = 0
-            floor + 12.0
-        }
-        val speech = db > maxOf(threshold, -58.0) && (learning == 0 || inSegment)
+        val speech = db > maxOf(floor + 12.0, -58.0)
         run = if (speech) run + 1 else 0
 
         if (!inSegment) {

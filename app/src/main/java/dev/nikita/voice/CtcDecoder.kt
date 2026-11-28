@@ -54,13 +54,17 @@ internal object CtcDecoder {
         val skip = (0 until special.length()).map { special.getInt(it) }.toSet()
         val blankId = meta.getInt("blank_id")
         val prior = if (weight > 0) CharacterPrior(language) else null
+        // The adapters also emit letters of other scripts, which turned noise and the app's own
+        // Shona voice into mixed Latin-Cyrillic words. Only the language's own alphabet is decoded.
+        val alphabet = if (language == "rus") RUSSIAN else SHONA
+        val allowed = BooleanArray(symbols.size) { i -> symbols[i].lowercase().all { it == ' ' || it in alphabet } }
         var beams: Map<String, Ending> = mapOf("" to Ending(0.0, impossible))
         val frame = FloatArray(symbols.size)
         repeat(frames) {
             scores.get(frame)
             val top = frame.indices.sortedByDescending { frame[it] }.take(8)
             val threshold = frame[top.first()] - 10
-            val candidates = top.filter { it !in skip && frame[it] >= threshold }
+            val candidates = top.filter { it !in skip && allowed[it] && frame[it] >= threshold }
             val next = LinkedHashMap<String, Ending>()
             for ((prefix, ending) in beams) {
                 val same = next.getOrPut(prefix) { Ending(impossible, impossible) }
@@ -85,4 +89,7 @@ internal object CtcDecoder {
         }
         return beams.keys.first().trim()
     }
+
+    private const val RUSSIAN = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя-'’"
+    private const val SHONA = "abcdefghijklmnopqrstuvwxyz-'’"
 }
