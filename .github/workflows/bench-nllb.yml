@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'tools/bench_nllb.py'
+      - 'tools/profile_nllb.py'
       - '.github/workflows/bench-nllb.yml'
 
 permissions:
@@ -32,6 +33,6 @@ jobs:
           rm -rf "$RUNNER_TEMP/source"
       - name: Benchmark
         run: |
-          pip install --quiet onnxruntime==1.22.0 sentencepiece numpy
+          pip install --quiet onnxruntime==1.22.0 onnx sentencepiece numpy
           nproc
-          python tools/bench_nllb.py model-assets/embedded_models
+          python tools/profile_nllb.py model-assets/embedded_models
