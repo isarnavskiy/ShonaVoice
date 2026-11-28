@@ -165,18 +165,42 @@ main { flex: 1; padding: 0 9px 87px; padding: 0 9px calc(87px + env(safe-area-in
 .live-toggle .ico { width: 22px; height: 22px; }
 .live-toggle[aria-pressed="true"] { background: var(--record); border-color: var(--record); color: var(--record-ink); animation: pulse 1.55s ease-out infinite; }
 .live-toggle:disabled { opacity: .5; }
+/* Two hands-free modes in one segmented switch above the start button. */
+.mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--divider); }
+.mode-switch label { position: relative; cursor: pointer; min-width: 0; }
+.mode-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; }
+.mode-switch span { display: flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 6px; border-radius: 10px; color: var(--muted); font-size: .86rem; font-weight: 560; text-align: center; line-height: 1.15; }
+.mode-switch input:checked + span { background: var(--tint); color: var(--accent); font-weight: 670; box-shadow: inset 0 0 0 1px var(--accent); }
+.mode-switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mode-switch input:disabled + span { opacity: .55; }
 .live-panel { margin-top: 10px; padding: 12px 15px; }
-.live-status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .82rem; }
-.live-status #liveQueue { margin-left: auto; color: var(--subtle); font-size: .75rem; }
-.live-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--subtle); flex: none; }
-.live-dot[data-state="speech"] { background: var(--record); box-shadow: 0 0 0 4px var(--record-halo); }
-.live-dot[data-state="listening"] { background: var(--status-ready); }
+/* Hearing, translating and speaking overlap in simultaneous mode, so each has its own light. */
+.live-stages { display: flex; gap: 5px; flex-wrap: wrap; }
+.stage { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 9px; border-radius: 15px; border: 1px solid var(--divider); color: var(--subtle); font-size: .76rem; font-weight: 560; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; }
+.stage::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .5; }
+.stage[data-on="true"] { color: var(--text); border-color: var(--accent); background: var(--tint); }
+.stage[data-on="true"]::before { opacity: 1; background: var(--accent); }
+.stage#stageHear[data-on="true"]::before { background: var(--record); box-shadow: 0 0 0 3px var(--record-halo); }
+.stage#stageHear[data-idle="true"]::before { background: var(--status-ready); opacity: 1; }
+.live-meta { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.live-meta #liveRoute { color: var(--subtle); font-size: .74rem; }
+.live-meta #liveRoute:empty { display: none; }
+/* While translating hands-free the text editor steps aside; the feed is the main view. */
+#translator.live-active .editarea, #translator.live-active .result-area { display: none; }
+#translator.live-active .live-feed { max-height: none; }
+#translator.live-active .languagebar { border-bottom: 0; }
+.live-meta #liveRoute[data-warn="true"] { color: var(--message); }
 .live-feed { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-height: 55vh; overflow-y: auto; }
 .live-item { border-top: 1px solid var(--divider); padding-top: 9px; overflow-wrap: anywhere; }
 .live-item time, .journal-item time { display: block; color: var(--subtle); font-size: .72rem; font-variant-numeric: tabular-nums; }
 .live-item .src, .journal-item .src { color: var(--muted); font-size: .88rem; margin-top: 2px; }
 .live-item .dst, .journal-item .dst { font-size: 1.12rem; line-height: 1.35; margin-top: 3px; }
 .live-item.error { color: var(--message); font-size: .82rem; }
+.live-item .meta { display: flex; gap: 8px; align-items: baseline; color: var(--subtle); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.live-item .meta time { display: inline; }
+.live-item .meta .lag { margin-left: auto; }
+.live-item .tech { color: var(--subtle); font-size: .7rem; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.live-empty { color: var(--subtle); font-size: .84rem; margin-top: 10px; }
 .journal-note { color: var(--muted); font-size: .82rem; line-height: 1.45; margin: 4px 0; }
 .journal-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 4px; }
 .journal-actions .primary { gap: 7px; }
@@ -345,12 +369,21 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
         </div>
       </section>
       <div class="live-bar">
-        <button type="button" class="live-toggle" id="live" aria-pressed="false"><i data-i="live"></i><span id="liveLabel">Непрерывный перевод</span></button>
-        <small id="liveHint">Говорите свободно: каждая фраза переведётся после паузы.</small>
+        <div class="mode-switch" role="radiogroup" aria-label="Режим перевода без рук">
+          <label><input type="radio" name="liveMode" value="text" id="modeText" checked><span>Непрерывный</span></label>
+          <label><input type="radio" name="liveMode" value="voice" id="modeVoice"><span>Синхронный</span></label>
+        </div>
+        <button type="button" class="live-toggle" id="live" aria-pressed="false"><i data-i="live"></i><span id="liveLabel">Начать непрерывный перевод</span></button>
+        <small id="liveHint"></small>
       </div>
-      <section id="livePanel" class="live-panel surface" aria-live="polite" hidden>
-        <div class="live-status"><span class="live-dot" id="liveDot"></span><span id="liveStatus">Слушаю…</span><span id="liveQueue"></span></div>
-        <div class="live-feed" id="liveFeed"></div>
+      <section id="livePanel" class="live-panel surface" aria-label="Ход перевода" hidden>
+        <div class="live-stages">
+          <span class="stage" id="stageHear">Слушаю</span>
+          <span class="stage" id="stageWork">Перевожу</span>
+          <span class="stage" id="stageSpeak">Озвучиваю</span>
+        </div>
+        <div class="live-meta"><span id="liveStatus" role="status"></span><span id="liveRoute"></span></div>
+        <div class="live-feed" id="liveFeed" aria-live="polite"></div>
       </section>
       <p id="timing" class="timing" hidden></p>
       <p id="message" class="message" role="status" hidden></p>
@@ -410,6 +443,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
         <p id="previewNotice" role="status" hidden></p>
       </div>
       <label class="checkline"><span><strong>Быстрый перевод</strong><small>Один вариант перевода вместо сравнения трёх. Заметно быстрее, качество на шона может быть чуть ниже.</small></span><input type="checkbox" id="fastTranslation" checked></label>
+      <label class="checkline"><span><strong>Показывать время обработки</strong><small>Технические подробности: сколько заняли распознавание, перевод и озвучивание.</small></span><input type="checkbox" id="showTimings"></label>
       <label class="checkline"><span><strong>Проверять текст после записи</strong><small>Можно исправить распознанные слова перед переводом.</small></span><input type="checkbox" id="reviewText"></label>
       <label class="checkline"><span><strong>Читать перевод вслух после записи</strong><small>Для введённого текста есть кнопка озвучивания.</small></span><input type="checkbox" id="autoSpeak" checked></label>
     </section>
@@ -694,8 +728,8 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
       return fallback;
     }
   }
-  for (const id of ['autoSpeak', 'reviewText', 'fastTranslation']) {
-    $(id).checked = loadPreference(id, id !== 'reviewText');
+  for (const id of ['autoSpeak', 'reviewText', 'fastTranslation', 'showTimings']) {
+    $(id).checked = loadPreference(id, id !== 'reviewText' && id !== 'showTimings');
     $(id).onchange = () => store(id, $(id).checked);
   }
   $('fastTranslation').addEventListener('change', () => prepareModels());
@@ -787,7 +821,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     $('input').readOnly = voiceBusy;
     $('mic').disabled = phase === 'finishing' || pending || !!liveJob;
     $('live').disabled = !liveJob && (phase !== 'idle' || pending);
-    for (const id of ['srcLang', 'dstLang', 'swap']) $(id).disabled = voiceBusy;
+    for (const id of ['srcLang', 'dstLang', 'swap', 'modeText', 'modeVoice']) $(id).disabled = voiceBusy;
     $('copy').disabled = $('save').disabled = $('listen').disabled = !result || voiceBusy || pending;
     $('clear').disabled = !val || voiceBusy;
     const count = units(val).length;
@@ -872,7 +906,11 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     const info = document.createElement('small');
     info.textContent = 'ОЗУ ' + (detail.ramMb / 1024).toFixed(1).replace('.', ',') + ' ГБ · лимит моделей ' + (detail.budgetMb / 1024).toFixed(1).replace('.', ',') + ' ГБ · ядер ' + detail.cores + (detail.fast ? ' · быстрый перевод' : '');
     $('timing').replaceChildren('Время: ' + parts.join(' · '), info);
-    $('timing').hidden = false;
+    $('timing').hidden = !$('showTimings').checked;
+  });
+  $('showTimings').addEventListener('change', () => {
+    $('timing').hidden = !$('showTimings').checked || !$('timing').textContent;
+    document.querySelectorAll('.live-item .tech').forEach(n => n.hidden = !$('showTimings').checked);
   });
   function prepareModels() {
     // Load the recognizer, translator and voice for this direction in the background.
@@ -1092,7 +1130,8 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
   const modeNames = {
     text: 'текст',
     voice: 'голос',
-    live: 'непрерывный'
+    live: 'непрерывный',
+    simultaneous: 'синхронный'
   };
   function renderJournal() {
     const search = key($('journalFilter').value);
@@ -1154,57 +1193,128 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     renderJournal();
   };
 
-  // Continuous translation: one tap, then phrase after phrase until stopped.
-  const liveStates = {
-    listening: 'Слушаю…',
-    speech: 'Идёт речь…',
-    stopping: 'Завершаю последнюю фразу…'
+  // Hands-free translation. Continuous: phrase after phrase as text. Simultaneous: every phrase is
+  // also spoken while the microphone keeps listening.
+  const liveModes = {
+    text: {
+      start: 'Начать непрерывный перевод',
+      stop: 'Остановить перевод',
+      hint: 'Говорите свободно: после каждой паузы фраза переводится текстом и сохраняется в журнал.'
+    },
+    voice: {
+      start: 'Начать синхронный перевод',
+      stop: 'Остановить перевод',
+      hint: 'Собеседник говорит, а приложение сразу озвучивает перевод каждой фразы. Лучше всего с наушниками.'
+    }
   };
+  let liveMode = loadPreference('liveMode', 'text') === 'voice' ? 'voice' : 'text';
+  const live = {
+    speech: false,
+    queue: 0,
+    voice: false,
+    stopping: false
+  };
+  function liveModeUi() {
+    $(liveMode === 'voice' ? 'modeVoice' : 'modeText').checked = true;
+    if (!liveJob) $('liveLabel').textContent = liveModes[liveMode].start;
+    $('liveHint').textContent = liveModes[liveMode].hint;
+  }
+  for (const id of ['modeText', 'modeVoice']) {
+    $(id).onchange = () => {
+      liveMode = $('modeVoice').checked ? 'voice' : 'text';
+      store('liveMode', liveMode);
+      liveModeUi();
+    };
+  }
+  liveModeUi();
+  function liveStatusUi() {
+    $('stageHear').dataset.on = String(live.speech);
+    $('stageHear').dataset.idle = String(!live.speech && !!liveJob && !live.stopping);
+    $('stageHear').textContent = live.speech ? 'Слышу речь' : 'Слушаю';
+    $('stageWork').dataset.on = String(live.queue > 0);
+    $('stageWork').textContent = live.queue > 1 ? 'Перевожу · ' + live.queue : 'Перевожу';
+    $('stageSpeak').dataset.on = String(live.voice);
+    if (live.stopping) $('liveStatus').textContent = live.queue || live.voice ? 'Заканчиваю начатые фразы…' : 'Останавливаю…';
+  }
   function liveItem(className, build) {
+    const feed = $('liveFeed');
+    // Follow new phrases only when the user has not scrolled up to reread.
+    const atEnd = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
     const item = document.createElement('div');
     item.className = className;
     build(item);
-    $('liveFeed').append(item);
-    $('liveFeed').scrollTop = $('liveFeed').scrollHeight;
+    const empty = feed.querySelector('.live-empty');
+    if (empty) empty.remove();
+    feed.append(item);
+    if (atEnd) feed.scrollTop = feed.scrollHeight;
+    return item;
   }
   function liveUi(active) {
     $('live').setAttribute('aria-pressed', String(active));
-    $('liveLabel').textContent = active ? 'Остановить непрерывный перевод' : 'Непрерывный перевод';
+    $('liveLabel').textContent = active ? liveModes[liveMode].stop : liveModes[liveMode].start;
     $('liveHint').hidden = active;
+    $('translator').classList.toggle('live-active', active);
     controls();
   }
+  const liveItems = new Map();
   $('live').onclick = () => {
     if (liveJob) {
       liveJob.stop();
+      live.stopping = true;
+      liveStatusUi();
       $('live').disabled = true;
       return;
     }
     if (!device || typeof device.live !== 'function') {
-      message('Непрерывный перевод работает в приложении на Android.');
+      message('Перевод без рук работает в приложении на Android.');
       return;
     }
     if (!cap.asr) {
       openModal(false, true);
       return;
     }
+    const speak = liveMode === 'voice';
+    if (speak && dest() === 'sn' && !cap.shonaTts) {
+      message('Для синхронного перевода на шона нужен голос шона. Выберите его в настройках.');
+      return;
+    }
     invalidate();
     voice.cancel();
     speechStop();
     message();
+    liveItems.clear();
+    Object.assign(live, {
+      speech: false,
+      queue: 0,
+      voice: false,
+      stopping: false
+    });
     $('liveFeed').replaceChildren();
+    const empty = document.createElement('p');
+    empty.className = 'live-empty';
+    empty.textContent = speak ? 'Переводы появятся здесь и будут сразу звучать.' : 'Переводы появятся здесь.';
+    $('liveFeed').append(empty);
     $('livePanel').hidden = false;
+    $('stageSpeak').hidden = !speak;
     $('liveStatus').textContent = 'Включаю микрофон…';
-    $('liveQueue').textContent = '';
-    $('liveDot').dataset.state = '';
+    $('liveRoute').textContent = '';
+    liveStatusUi();
     const src = from,
       dst = dest();
     const job = device.live(src, dst, (type, value) => {
       if (type === 'live-state') {
-        $('liveStatus').textContent = liveStates[value] || value;
-        $('liveDot').dataset.state = value;
+        if (value === 'stopping') live.stopping = true;else {
+          live.speech = value === 'speech';
+          if (!live.stopping) $('liveStatus').textContent = speak ? 'Говорите — перевод прозвучит после паузы' : 'Говорите — перевод появится после паузы';
+        }
       } else if (type === 'live-queue') {
-        const n = Number(value) || 0;
-        $('liveQueue').textContent = n ? 'в обработке: ' + n : '';
+        live.queue = Number(value) || 0;
+      } else if (type === 'live-voice') {
+        live.voice = value === '1';
+      } else if (type === 'live-route') {
+        const headset = value === 'headset';
+        $('liveRoute').textContent = headset ? 'Звук в наушниках' : 'Звук через динамик. С наушниками распознавание точнее.';
+        $('liveRoute').dataset.warn = String(!headset);
       } else if (type === 'live') {
         let e;
         try {
@@ -1212,26 +1322,52 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
         } catch (_unused) {
           return;
         }
-        liveItem('live-item', item => {
-          const time = document.createElement('time'),
+        const item = liveItem('live-item', item => {
+          const meta = document.createElement('div'),
+            time = document.createElement('time'),
+            lag = document.createElement('span'),
+            b = document.createElement('div'),
             a = document.createElement('div'),
-            b = document.createElement('div');
-          time.textContent = clock(new Date(e.at)) + ' · фраза ' + seconds(e.seconds * 1000) + ' · распознавание ' + seconds(e.asrMs) + ' · перевод ' + seconds(e.mtMs);
-          a.className = 'src';
-          a.lang = src;
-          a.textContent = e.source;
+            tech = document.createElement('div');
+          meta.className = 'meta';
+          time.textContent = clock(new Date(e.at));
+          lag.className = 'lag';
+          // What the client feels: how long after the phrase ended its translation appeared.
+          lag.textContent = 'перевод за ' + seconds(e.asrMs + e.mtMs) + (e.spoken === false ? ' · без озвучки, чтобы не отставать' : '');
+          meta.append(time, lag);
           b.className = 'dst';
           b.lang = dst;
           b.textContent = e.translation;
-          item.append(time, a, b);
+          a.className = 'src';
+          a.lang = src;
+          a.textContent = e.source;
+          tech.className = 'tech';
+          tech.hidden = !$('showTimings').checked;
+          tech.textContent = 'фраза ' + seconds(e.seconds * 1000) + ' · распознавание ' + seconds(e.asrMs) + ' · перевод ' + seconds(e.mtMs) + (e.loadMs >= 300 ? ' · загрузка моделей ' + seconds(e.loadMs) : '');
+          item.append(meta, b, a, tech);
         });
+        liveItems.set(e.at, item);
         $('input').value = e.source;
         setResult(e.translation);
+      } else if (type === 'live-spoken') {
+        let e;
+        try {
+          e = JSON.parse(value);
+        } catch (_unused) {
+          return;
+        }
+        const done = liveItems.get(e.at),
+          tech = done && done.querySelector('.tech');
+        if (tech) tech.textContent += ' · голос через ' + seconds(e.lagMs) + ' после паузы';
       } else if (type === 'live-error') {
         liveItem('live-item error', item => {
           item.textContent = value;
         });
       }
+      liveStatusUi();
+    }, {
+      speak,
+      voiceId: $('shonaVoice').value || ''
     });
     liveJob = job;
     liveUi(true);
@@ -1240,9 +1376,15 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     }).finally(() => {
       if (liveJob !== job) return;
       liveJob = null;
-      $('liveStatus').textContent = 'Остановлено. Все фразы сохранены в журнале.';
-      $('liveDot').dataset.state = '';
-      $('liveQueue').textContent = '';
+      Object.assign(live, {
+        speech: false,
+        queue: 0,
+        voice: false,
+        stopping: false
+      });
+      liveStatusUi();
+      $('liveStatus').textContent = liveItems.size ? 'Остановлено. Все фразы сохранены в журнале.' : 'Остановлено.';
+      $('liveRoute').textContent = '';
       liveUi(false);
     });
   };

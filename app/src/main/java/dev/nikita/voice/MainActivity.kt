@@ -5,6 +5,9 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -41,6 +44,8 @@ internal class DeviceBridge(private val activity: MainActivity) {
     @JavascriptInterface fun finish(id: Int) = activity.runOnUiThread { activity.finishRecording(id) }
     @JavascriptInterface fun live(id: Int, from: String, to: String) =
         activity.runOnUiThread { activity.live(id, from, to) }
+    @JavascriptInterface fun liveWith(id: Int, from: String, to: String, speak: Boolean, voiceId: String) =
+        activity.runOnUiThread { activity.live(id, from, to, speak, voiceId) }
     @JavascriptInterface fun journalAdd(from: String, to: String, source: String, translation: String, mode: String) =
         activity.journal.add(System.currentTimeMillis(), from, to, source, translation, mode)
     @JavascriptInterface fun journalRead(): String = activity.journal.read().toString()
@@ -66,7 +71,7 @@ class MainActivity : Activity() {
     private class Operation(val id: Int) {
         @Volatile var cancelled = false
         var future: Future<*>? = null
-        var audio: SpeechOutput? = null
+        @Volatile var audio: SpeechOutput? = null
         var inputLanguage: String? = null
         val finishedRecording = CompletableFuture<() -> FloatArray>()
         var capturing = false
@@ -74,6 +79,12 @@ class MainActivity : Activity() {
         @Volatile var measuredFrom = 0L
         var liveTarget: String? = null
         var live: LiveCapture? = null
+        /** Simultaneous mode: every translation is also spoken while listening continues. */
+        var speakLive = false
+        var voiceId = ""
+        var player: LivePlayer? = null
+        @Volatile var headset = false
+        var routeCallback: android.media.AudioDeviceCallback? = null
     }
 
     private lateinit var screen: ConversationScreen
@@ -168,6 +179,8 @@ class MainActivity : Activity() {
         active = null
         if (op.capturing) recorder.cancel()
         op.live?.cancel()
+        op.player?.close()
+        op.routeCallback?.let { getSystemService(AudioManager::class.java).unregisterAudioDeviceCallback(it) }
         if (message != null) {
             op.cancelled = true
             op.finishedRecording.cancel(false)
@@ -356,7 +369,7 @@ class MainActivity : Activity() {
         val op = active?.takeIf { it.id == id && it.inputLanguage != null } ?: return
         if (op.liveTarget != null) {
             val live = op.live
-            if (live == null) end(op, "Непрерывный перевод остановлен.") else {
+            if (live == null) end(op, if (op.speakLive) "Синхронный перевод остановлен." else "Непрерывный перевод остановлен.") else {
                 live.stop()
                 screen.send(id, "live-state", "stopping")
             }
@@ -376,18 +389,20 @@ class MainActivity : Activity() {
      * Hands-free translation: one tap keeps the microphone open, every phrase is recognized and
      * translated while the next one is being recorded, and each result is added to the journal.
      */
-    internal fun live(id: Int, from: String, to: String) {
+    internal fun live(id: Int, from: String, to: String, speak: Boolean = false, voiceId: String = "") {
         val op = newOperation(id) ?: return
         val src = runCatching { language(from) }.getOrNull()
         val dst = runCatching { language(to) }.getOrNull()
         if (src == null || dst == null || src == dst) { end(op, "Неизвестное направление перевода."); return }
         op.inputLanguage = src
         op.liveTarget = dst
+        op.speakLive = speak
+        op.voiceId = voiceId
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             if (permissionOp == null) {
                 permissionOp = op
                 requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_PERMISSION)
-            } else end(op, "Подтвердите разрешение и снова включите непрерывный перевод.")
+            } else end(op, "Подтвердите разрешение и снова включите перевод.")
         } else beginLive(op)
     }
 
@@ -396,14 +411,48 @@ class MainActivity : Activity() {
         val src = op.inputLanguage!!
         val dst = op.liveTarget!!
         val pending = AtomicInteger()
-        val capture = LiveCapture(
+        val audio = getSystemService(AudioManager::class.java)
+        var capture: LiveCapture? = null
+        if (op.speakLive) {
+            op.headset = headsetConnected(audio)
+            val player = LivePlayer { speaking ->
+                // Through the loudspeaker the microphone hears the translation too: only clearly
+                // louder live speech counts while it plays. Headphones keep full sensitivity.
+                capture?.setStrict(speaking && !op.headset)
+                runOnUiThread { if (active === op) screen.send(op.id, "live-voice", if (speaking) "1" else "0") }
+            }
+            op.player = player
+            player.start()
+            val callback = object : android.media.AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) = route()
+                override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = route()
+                fun route() {
+                    if (active !== op) return
+                    op.headset = headsetConnected(audio)
+                    if (op.headset) capture?.setStrict(false)
+                    screen.send(op.id, "live-route", if (op.headset) "headset" else "speaker")
+                }
+            }
+            op.routeCallback = callback
+            // Reports the current route immediately, then every change.
+            audio.registerAudioDeviceCallback(callback, android.os.Handler(mainLooper))
+        }
+        // Voice-communication capture enables the echo canceller when the translation plays aloud.
+        val source = if (op.speakLive && !op.headset) MediaRecorder.AudioSource.VOICE_COMMUNICATION
+            else MediaRecorder.AudioSource.MIC
+        val builtIn = audio.getDevices(AudioManager.GET_DEVICES_INPUTS).firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }
+        capture = LiveCapture(
+            source = source,
+            preferredInput = builtIn,
             onSegment = { pcm, rate -> processSegment(op, path, src, dst, pcm, rate, pending) },
             onSpeech = { speaking ->
                 runOnUiThread { if (active === op) screen.send(op.id, "live-state", if (speaking) "speech" else "listening") }
             },
             onClosed = { failure ->
-                // Runs after the last phrase was queued; the worker finishes it first.
+                // Runs after the last phrase was queued; the worker finishes it first,
+                // then the remaining translations are spoken to the end.
                 worker.execute {
+                    if (failure == null) op.player?.drain(120_000) { !op.cancelled }
                     runOnUiThread {
                         if (failure != null) end(op, failure.localizedMessage ?: "Микрофон недоступен.")
                         else end(op, value = "")
@@ -414,38 +463,83 @@ class MainActivity : Activity() {
         op.live = capture
         capture.start()
         screen.send(op.id, "live-state", "listening")
-        // Load both models while the first phrase is being spoken.
+        // Load the models while the first phrase is being spoken.
         worker.execute {
             runCatching {
                 if (!op.cancelled) Nllb(path).warm(src, dst, beam = !fastTranslation)
                 if (!op.cancelled) MmsAsr(path).warm(src)
+                if (!op.cancelled && op.speakLive) SpeechOutput.warm(path, dst, op.voiceId)
             }
         }
+    }
+
+    private fun headsetConnected(audio: AudioManager): Boolean {
+        val types = mutableSetOf(
+            AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) types += AudioDeviceInfo.TYPE_BLE_HEADSET
+        return audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type in types }
     }
 
     private fun processSegment(op: Operation, path: File, src: String, dst: String, pcm: ShortArray, rate: Int,
                                pending: AtomicInteger) {
         pending.incrementAndGet()
         runOnUiThread { if (active === op) screen.send(op.id, "live-queue", pending.get().toString()) }
+        val heard = System.currentTimeMillis()
         worker.execute {
             try {
                 if (op.cancelled) return@execute
                 ModelCache.takeLoadMillis()
                 val started = SystemClock.elapsedRealtime()
                 val audio = Resampler.to16k(pcm, pcm.size, rate)
-                val text = MmsAsr(path).transcribe(src) { audio }.trim()
+                val seconds = audio.size / 16_000.0
+                val raw = MmsAsr(path).transcribe(src) { audio }.trim()
                 val recognized = SystemClock.elapsedRealtime()
-                if (text.isEmpty() || op.cancelled) return@execute
+                // Noise, breathing and echo produce short letter salad; it is not worth translating.
+                if (raw.isEmpty() || op.cancelled || !SpeechFilter.plausible(raw, src, seconds)) return@execute
+                val text = if (src == "rus") SpeechFilter.fixRussian(raw) else raw
                 val translation = Nllb(path).translate(text, src, dst, beam = !fastTranslation).trim()
                 val done = SystemClock.elapsedRealtime()
                 val at = System.currentTimeMillis()
-                journal.add(at, code(src), code(dst), text, translation, "live")
+                journal.add(at, code(src), code(dst), text, translation, if (op.speakLive) "simultaneous" else "live")
                 val event = JSONObject().put("source", text).put("translation", translation).put("at", at)
-                    .put("seconds", audio.size / 16_000.0).put("asrMs", recognized - started)
-                    .put("mtMs", done - recognized).put("loadMs", ModelCache.takeLoadMillis()).toString()
-                runOnUiThread { if (active === op) screen.send(op.id, "live", event) }
+                    .put("seconds", seconds).put("asrMs", recognized - started)
+                    .put("mtMs", done - recognized).put("loadMs", ModelCache.takeLoadMillis())
+                val player = op.player
+                if (player == null || translation.isBlank()) {
+                    runOnUiThread { if (active === op) screen.send(op.id, "live", event.toString()) }
+                    return@execute
+                }
+                // Show the text at once; the voice follows as soon as its first clause is synthesized.
+                val behind = player.backlogMillis()
+                event.put("spoken", behind < 25_000).put("behindMs", behind)
+                runOnUiThread { if (active === op) screen.send(op.id, "live", event.toString()) }
+                if (behind >= 25_000 || op.cancelled) return@execute
+                val voice = SpeechOutput(applicationContext, path)
+                op.audio = voice // end() stops synthesis together with the player.
+                var voiceLag = -1L
+                ShonaPlayback.sink.set { chunk, chunkRate ->
+                    if (voiceLag < 0) {
+                        // The first clause starts once the phrases queued before it have played.
+                        voiceLag = System.currentTimeMillis() - heard + player.backlogMillis()
+                        val timing = JSONObject().put("at", at).put("ttsMs", SystemClock.elapsedRealtime() - done)
+                            .put("lagMs", voiceLag).toString()
+                        runOnUiThread { if (active === op) screen.send(op.id, "live-spoken", timing) }
+                    }
+                    player.enqueue(chunk, chunkRate)
+                }
+                try {
+                    voice.speak(translation, dst, op.voiceId)
+                } finally {
+                    ShonaPlayback.sink.remove()
+                    if (op.audio === voice) op.audio = null
+                }
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
+            } catch (e: java.util.concurrent.CancellationException) {
+                // Stopped by the user while this phrase was being voiced.
             } catch (e: Exception) {
                 val text = e.localizedMessage?.lineSequence()?.firstOrNull()?.take(200) ?: "Фрагмент не обработан."
                 runOnUiThread { if (active === op) screen.send(op.id, "live-error", text) }

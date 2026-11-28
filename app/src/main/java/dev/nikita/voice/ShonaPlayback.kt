@@ -12,7 +12,20 @@ import kotlin.concurrent.thread
 
 /** One bounded queue lets the next clause synthesize while the current one plays on the same track. */
 internal object ShonaPlayback {
+    /**
+     * When set on the calling thread, synthesized audio goes to this sink instead of a new
+     * AudioTrack. Simultaneous translation uses it to queue every voice on one continuous player.
+     */
+    val sink = ThreadLocal<((ShortArray, Int) -> Unit)?>()
+
     fun play(sampleRate: Int, active: () -> Unit, stopInference: () -> Unit, synthesize: ((ShortArray) -> Unit) -> Unit) {
+        sink.get()?.let { target ->
+            synthesize { audio ->
+                active()
+                target(audio, sampleRate)
+            }
+            return
+        }
         pipe(active, synthesize, stopInference) { next -> render(sampleRate, active, next) }
     }
 

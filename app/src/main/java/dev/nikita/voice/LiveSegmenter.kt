@@ -33,7 +33,15 @@ internal class LiveSegmenter(
     private var silence = 0
     private var run = 0
     private var floor = Double.NaN
+    private var echo = Double.NaN // Median level while the app speaks; NaN otherwise.
+    private var learning = 0
     private var speaking = false
+
+    /**
+     * Set while the app's own voice plays through the loudspeaker. Only speech well above the
+     * residual echo then counts, so the translation is not recognized again as new input.
+     */
+    @Volatile var strict = false
 
     /** Accepts exactly [frame] samples. */
     fun push(chunk: ShortArray, offset: Int = 0) {
@@ -43,7 +51,21 @@ internal class LiveSegmenter(
             db < floor -> db
             else -> floor + 0.05 // Rises 2.5 dB per second, so speech never becomes the floor.
         }
-        val speech = db > maxOf(floor + 12.0, -58.0)
+        val threshold = if (strict) {
+            // Follow the median of the residual echo between phrases, so a phone with a weak echo
+            // canceller still needs clearly louder live speech than its own voice to start a phrase.
+            // Inside a phrase the estimate is frozen: the person's own speech is not echo.
+            // The first 300 ms only learn the echo level quickly; a phrase cannot start meanwhile.
+            if (echo.isNaN()) { echo = db; learning = 15 }
+            else if (!inSegment) echo += (if (db > echo) 1.0 else -1.0) * if (learning > 0) 1.5 else 0.4
+            if (learning > 0) learning--
+            maxOf(floor + 22.0, echo + 15.0)
+        } else {
+            echo = Double.NaN
+            learning = 0
+            floor + 12.0
+        }
+        val speech = db > maxOf(threshold, -58.0) && (learning == 0 || inSegment)
         run = if (speech) run + 1 else 0
 
         if (!inSegment) {

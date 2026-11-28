@@ -14,7 +14,7 @@ class VoiceRecorder {
         const val MAX_SECONDS = 30
 
         @SuppressLint("MissingPermission")
-        internal fun openMicrophone(): AudioRecord {
+        internal fun openMicrophone(source: Int = MediaRecorder.AudioSource.MIC): AudioRecord {
             // Omitting the rate allows Android to pick the route default. Some OEMs
             // require an explicit one. Always use sampleRate from the opened recorder.
             for (requested in intArrayOf(0, 48_000, 44_100, 16_000)) {
@@ -24,7 +24,7 @@ class VoiceRecorder {
                 if (requested > 0) format.setSampleRate(requested)
                 val mic = try {
                     AudioRecord.Builder()
-                        .setAudioSource(MediaRecorder.AudioSource.MIC)
+                        .setAudioSource(source)
                         .setAudioFormat(format.build())
                         .build()
                 } catch (_: IllegalArgumentException) {
