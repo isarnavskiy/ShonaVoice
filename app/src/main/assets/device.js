@@ -144,6 +144,9 @@ if (!Promise.prototype.finally) {
       }
       return value;
     },
+    prepare(from, to, voiceId) {
+      if (typeof native.prepare === 'function') native.prepare(from, to, voiceId || '');
+    },
     hasShonaNumberGroups(text) {
       return typeof native.hasShonaNumberGroups === 'function' && native.hasShonaNumberGroups(text);
     },

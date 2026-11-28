@@ -39,7 +39,10 @@ class Nllb(modelRoot: File) {
         val config = JSONObject(File(directory, "config.json").readText())
         // The paired FLEURS check favored beam search into Shona and greedy decoding into Russian.
         val preferBeam = dst == "sna"
-        val decoderFile = if (preferBeam) BeamDecoder.model(directory) else File(directory, "decoder.onnx")
+        // The beam derivative keeps the greedy output, so once it exists one decoder serves both directions
+        // and only one 476 MB graph needs to stay in memory.
+        val decoderFile = if (preferBeam) BeamDecoder.model(directory)
+            else BeamDecoder.existing(directory) ?: File(directory, "decoder.onnx")
         val encoded = linkedMapOf<String, Encoded>()
         val translations = mutableMapOf<String, String>()
         try {
@@ -52,13 +55,8 @@ class Nllb(modelRoot: File) {
             }
             val pieceCount = config.getLong("piece_count")
             return session(decoderFile) { decoder ->
-                val graph = checkNotNull(javaClass.getResourceAsStream("/beam-cache.onnx")).use { it.readBytes() }
-                OrtSession.SessionOptions().use { options ->
-                    options.setIntraOpNumThreads(1)
-                    options.setInterOpNumThreads(1)
-                    options.setCPUArenaAllocator(false)
-                    options.setMemoryPatternOptimization(false)
-                    environment.createSession(graph, options).use { selector ->
+                run {
+                    ModelCache.use(SELECTOR_KEY, SELECTOR_BYTES, ::openSelector) { selector ->
                         fun predict(source: String): String = translations.getOrPut(source) {
                             val alternatives = generate(decoder, selector, encoded.getValue(source), config.getLong(dst), pieceCount, preferBeam)
                             val numbers = ShonaTranslationText.numbers(source)
@@ -339,15 +337,37 @@ class Nllb(modelRoot: File) {
 
     private fun OrtSession.Result.tensor(name: String): OnnxTensor = get(name).get() as OnnxTensor
 
-    private fun <T> session(file: File, body: (OrtSession) -> T): T =
-        OrtSession.SessionOptions().use { options ->
-            options.setIntraOpNumThreads(minOf(4, Runtime.getRuntime().availableProcessors()))
+    private fun configure(options: OrtSession.SessionOptions) {
+        options.setIntraOpNumThreads(minOf(4, Runtime.getRuntime().availableProcessors()))
+        options.setInterOpNumThreads(1)
+        options.setMemoryPatternOptimization(false)
+        options.setCPUArenaAllocator(false)
+        options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.BASIC_OPT)
+    }
+
+    // Kept loaded between requests: reading the 419 MB encoder and 476 MB decoder dominated short translations.
+    private fun <T> session(file: File, body: (OrtSession) -> T): T = ModelCache.use(file, file.length(), ::configure, body)
+
+    private fun openSelector(): OrtSession {
+        val graph = checkNotNull(javaClass.getResourceAsStream("/beam-cache.onnx")).use { it.readBytes() }
+        return OrtSession.SessionOptions().use { options ->
+            options.setIntraOpNumThreads(1)
             options.setInterOpNumThreads(1)
-            options.setMemoryPatternOptimization(false)
             options.setCPUArenaAllocator(false)
-            options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.BASIC_OPT)
-            environment.createSession(file.absolutePath, options).use(body)
+            options.setMemoryPatternOptimization(false)
+            environment.createSession(graph, options)
         }
+    }
+
+    /** Load the graphs for the next translation from [src] to [dst] if memory allows. */
+    fun warm(src: String, dst: String): Boolean {
+        val decoder = if (dst == "sna") BeamDecoder.existing(directory) ?: return false
+            else BeamDecoder.existing(directory) ?: File(directory, "decoder.onnx")
+        val encoder = File(directory, "encoder.onnx")
+        return ModelCache.warm(encoder, encoder.length(), ::configure) &&
+            ModelCache.warm(decoder, decoder.length(), ::configure) &&
+            ModelCache.warm(SELECTOR_KEY, SELECTOR_BYTES, ::openSelector)
+    }
 
     private companion object {
         val SENTENCE_END = Regex("""[.!?…]+[»”"')\]]*(?=\s|$)""")
@@ -358,5 +378,7 @@ class Nllb(modelRoot: File) {
         const val BEAMS = 3
         const val SOURCE_BUDGET = 192
         const val PAST = "past_key_values."
+        const val SELECTOR_KEY = "resource:/beam-cache.onnx"
+        const val SELECTOR_BYTES = 4096L
     }
 }

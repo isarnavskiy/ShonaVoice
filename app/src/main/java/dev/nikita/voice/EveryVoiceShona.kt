@@ -18,13 +18,12 @@ internal object EveryVoiceShona {
         val phrases = ShonaProsody.plan(text, preserveSymbols = true) { vocab.has(it.toString()) }
         require(phrases.isNotEmpty()) { "В тексте нет слов для озвучивания." }
         val env = OrtEnvironment.getEnvironment()
-        OrtSession.SessionOptions().use { options ->
-            options.setIntraOpNumThreads(2)
-            options.setInterOpNumThreads(1)
-            options.setMemoryPatternOptimization(false)
-            env.createSession(File(directory, "acoustic.onnx").absolutePath, options).use { acoustic ->
+        val acousticFile = File(directory, "acoustic.onnx")
+        val vocoderFile = File(directory, "vocoder.onnx")
+        run {
+            ModelCache.use(acousticFile, acousticFile.length(), ::configure) { acoustic ->
                 active()
-                env.createSession(File(directory, "vocoder.onnx").absolutePath, options).use { vocoder ->
+                ModelCache.use(vocoderFile, vocoderFile.length(), ::configure) { vocoder ->
                     ShonaPlayback.play(rate, active, stopInference) { emit ->
                         val pending = java.util.ArrayDeque(phrases)
                         while (pending.isNotEmpty()) {
@@ -65,6 +64,21 @@ internal object EveryVoiceShona {
                 }
             }
         }
+    }
+
+    private fun configure(options: OrtSession.SessionOptions) {
+        options.setIntraOpNumThreads(ModelCache.threads())
+        options.setInterOpNumThreads(1)
+        options.setMemoryPatternOptimization(false)
+        options.setCPUArenaAllocator(false)
+    }
+
+    /** Load both EveryVoice graphs before the first reply if memory allows. */
+    fun warm(directory: File): Boolean {
+        val acoustic = File(directory, "acoustic.onnx")
+        val vocoder = File(directory, "vocoder.onnx")
+        return ModelCache.warm(acoustic, acoustic.length(), ::configure) &&
+            ModelCache.warm(vocoder, vocoder.length(), ::configure)
     }
 
     private fun split(phrase: ShonaProsody.Phrase): Pair<ShonaProsody.Phrase, ShonaProsody.Phrase> {

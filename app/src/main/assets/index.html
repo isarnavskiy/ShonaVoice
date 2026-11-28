@@ -779,6 +779,11 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     $('input').setAttribute('aria-label', 'Текст для перевода. ' + langs[from]);
     $('output').lang = dest();
     $('swap').setAttribute('aria-label', 'Поменять языки местами. Исходный язык: ' + langs[from] + ', язык перевода: ' + langs[dest()]);
+    prepareModels();
+  }
+  function prepareModels() {
+    // Load the recognizer, translator and voice for this direction in the background.
+    if (device && cap.translation === true) device.prepare(from, dest(), $('shonaVoice').value || '');
   }
   function setDirection(nextFrom) {
     if (nextFrom === from || phase !== 'idle') return;
@@ -1264,6 +1269,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
     speechStop();
     store('shonaVoice', $('shonaVoice').value);
     $('previewNotice').hidden = true;
+    prepareModels();
   };
   $('previewShona').onclick = async () => {
     const button = $('previewShona');
@@ -1328,6 +1334,7 @@ dialog p, .fine { color: var(--muted); font-size: .84rem; line-height: 1.5; }
   setResult();
   renderRecording('idle');
   refreshMode();
+  prepareModels();
   if (!device) (_window$speechSynthes = window.speechSynthesis) === null || _window$speechSynthes === void 0 || _window$speechSynthes.getVoices();
 })();</script>
 </body>
